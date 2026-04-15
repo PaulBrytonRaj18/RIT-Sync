@@ -1,0 +1,130 @@
+# ============================================================================
+# Backend (Spring Boot / Java / Maven)
+# ============================================================================
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.properties
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# IDE - Eclipse
+.classpath
+.project
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.vscode/
+*.swp
+*.swo
+*~
+
+# IDE - IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# IDE - Netbeans
+nbproject/
+.nb-gradle/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================================================================
+# Frontend (React / Node.js / Vite)
+# ============================================================================
+ritsync-frontend/node_modules/
+ritsync-frontend/dist/
+ritsync-frontend/.vite/
+ritsync-frontend/.env
+ritsync-frontend/.env.local
+ritsync-frontend/.env.*.
+node_modules/local
+ritsync-frontend/.cache/
+ritsync-frontend/.eslintcache
+ritsync-frontend/.parcel-cache/
+ritsync-frontend/.next/
+ritsync-frontend/.nuxt/
+ritsync-frontend/.vuepress/dist/
+ritsync-frontend/.vuepress/.temp/
+ritsync-frontend/.angular/cache/
+ritsync-frontend/.angular/cli.json
+ritsync-frontend/.angular/tsconfig.json
+ritsync-frontend/.angular/tsconfig.app.json
+ritsync-frontend/.angular/tsconfig.spec.json
+
+# ============================================================================
+# Backend Environment & Configuration
+# ============================================================================
+ritsync-backend/.env
+ritsync-backend/.env.local
+ritsync-backend/.env.prod
+ritsync-backend/.env.*.local
+
+# ============================================================================
+# Database & Container Data
+# ============================================================================
+mysql_data/
+redis_data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================================================
+# OS & Editor
+# ============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+*.lnk
+$RECYCLE.BIN/
+
+# ============================================================================
+# Miscellaneous
+# ============================================================================
+*.bak
+*.backup
+.history/
+.vscode-server/
+.factorypath
+.apt_generated/
+.apt_generated_tests/
+.classpath
+.c9/
+.cproject
+.factorypath
+.project
+.pydevproject
+.settings
+.springBeans
+.sts4-cache/
+
+# Local development
+local_dev/
+.temp/
+.cache/
+
+# Security - DO NOT COMMIT
+.secrets
+secrets.json
+private_key.pem

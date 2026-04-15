@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: ritsync-backend
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/ritsync_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ritsync_user
+    password: ritsync_pass
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/init.sql
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:noreply@ritsync.com}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+  error:
+    include-message: always
+
+jwt:
+  secret: ${JWT_SECRET:change-me-in-production-needs-to-be-at-least-256-bits-long-secret-key}
+  access-token-expiry-ms: 900000       # 15 minutes
+  refresh-token-expiry-ms: 604800000   # 7 days
+
+app:
+  geofence:
+    default-radius-meters: 100
+  attendance:
+    threshold-warning-percent: 75
+    threshold-critical-percent: 65
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://localhost:5173
+
+logging:
+  level:
+    com.ritsync: DEBUG
+    org.springframework.security: INFO
