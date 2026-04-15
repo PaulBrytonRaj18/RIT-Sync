@@ -30,11 +30,17 @@ public class DeviceBinding {
 
     @Column(nullable = false)
     @Builder.Default
-    private Boolean isTrusted = true;
+    private Boolean isTrusted = false;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime boundAt;
 
     private LocalDateTime lastSeenAt;
+    
+    private String verificationToken;
+    
+    private LocalDateTime verificationExpiry;
+    
+    private LocalDateTime verifiedAt;
 }

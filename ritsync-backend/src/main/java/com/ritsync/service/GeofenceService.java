@@ -20,6 +20,10 @@ public class GeofenceService {
     public boolean isWithinFence(double userLat, double userLng,
                                   BigDecimal fenceLat, BigDecimal fenceLng,
                                   int radiusMetres) {
+        if (fenceLat == null || fenceLng == null) {
+            throw new IllegalArgumentException("Fence coordinates cannot be null");
+        }
+        
         double dist = distanceMetres(
             userLat, userLng,
             fenceLat.doubleValue(), fenceLng.doubleValue()

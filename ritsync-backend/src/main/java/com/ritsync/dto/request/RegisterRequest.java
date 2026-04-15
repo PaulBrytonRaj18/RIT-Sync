@@ -11,5 +11,7 @@ public record RegisterRequest(
     @NotBlank                             String department,
                                           String rollNumber,
                                           String employeeId,
-                                          String phone
+                                          String phone,
+                                          String deviceFingerprint,
+                                          String deviceName
 ) {}

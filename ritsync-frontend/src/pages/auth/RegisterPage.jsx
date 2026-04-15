@@ -17,12 +17,27 @@ export default function RegisterPage() {
     name: '', email: '', password: '', role: 'STUDENT',
     department: 'CSE', rollNumber: '', employeeId: '', phone: ''
   })
+  const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
 
   const set = (k) => (e) => setForm(p => ({ ...p, [k]: e.target.value }))
 
+  const validate = () => {
+    const e = {}
+    if (!form.name.trim()) e.name = 'Name is required'
+    if (!form.email.trim()) e.email = 'Email is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email format'
+    if (!form.password) e.password = 'Password is required'
+    else if (form.password.length < 8) e.password = 'Password must be at least 8 characters'
+    if (form.role === 'STUDENT' && !form.rollNumber.trim()) e.rollNumber = 'Roll number is required for students'
+    if (form.role === 'TEACHER' && !form.employeeId.trim()) e.employeeId = 'Employee ID is required for teachers'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!validate()) return
     setLoading(true)
     try {
       const data = await authApi.register(form)
@@ -50,9 +65,9 @@ export default function RegisterPage() {
 
         <div className="card">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <Input label="Full name" placeholder="Your name" value={form.name} onChange={set('name')} required />
-            <Input label="Email" type="email" placeholder="you@rit.edu" value={form.email} onChange={set('email')} required />
-            <Input label="Password" type="password" placeholder="Min 8 characters" value={form.password} onChange={set('password')} required minLength={8} />
+            <Input label="Full name" placeholder="Your name" value={form.name} onChange={set('name')} error={errors.name} required />
+            <Input label="Email" type="email" placeholder="you@rit.edu" value={form.email} onChange={set('email')} error={errors.email} required />
+            <Input label="Password" type="password" placeholder="Min 8 characters" value={form.password} onChange={set('password')} error={errors.password} required minLength={8} />
 
             <div className="grid grid-cols-2 gap-3">
               <Select label="Role" value={form.role} onChange={set('role')}>
@@ -65,9 +80,9 @@ export default function RegisterPage() {
             </div>
 
             {form.role === 'STUDENT' ? (
-              <Input label="Roll number" placeholder="21CSE001" value={form.rollNumber} onChange={set('rollNumber')} />
+              <Input label="Roll number" placeholder="21CSE001" value={form.rollNumber} onChange={set('rollNumber')} error={errors.rollNumber} required />
             ) : (
-              <Input label="Employee ID" placeholder="EMP001" value={form.employeeId} onChange={set('employeeId')} />
+              <Input label="Employee ID" placeholder="EMP001" value={form.employeeId} onChange={set('employeeId')} error={errors.employeeId} required />
             )}
 
             <Input label="Phone (optional)" type="tel" placeholder="+91 9876543210" value={form.phone} onChange={set('phone')} />

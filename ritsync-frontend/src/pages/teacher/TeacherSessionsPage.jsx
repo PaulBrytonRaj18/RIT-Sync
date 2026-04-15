@@ -28,14 +28,11 @@ export default function TeacherSessionsPage() {
   const [creating, setCreating] = useState(false)
 
   const load = async () => {
-    const [c, allSessions] = await Promise.all([
-      coursesApi.getMyCourses(),
-      Promise.all([]).then(() => []),  // will fetch per-course
-    ])
-    setCourses(c)
-    if (c.length > 0) {
+    const courses = await coursesApi.getMyCourses()
+    setCourses(courses)
+    if (courses.length > 0) {
       const sessionArrays = await Promise.all(
-        c.map(course => sessionsApi.getCourseSessions(course.id).catch(() => []))
+        courses.map(course => sessionsApi.getCourseSessions(course.id).catch(() => []))
       )
       setSessions(sessionArrays.flat().sort((a,b) => new Date(b.startTime) - new Date(a.startTime)))
     }
@@ -102,7 +99,7 @@ export default function TeacherSessionsPage() {
         <div className="space-y-3">
           {sessions.map(s => (
             <div key={s.id} className="card flex items-center gap-4">
-              <Link to={`/teacher/sessions/${s.id}`} className="flex-1 min-w-0">
+              <Link to={`/teacher/attendance/${s.id}`} className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <p className="text-sm font-medium text-gray-900 truncate">{s.course?.name || '—'}</p>
                   {s.isOpen && <Badge variant="green">Live</Badge>}

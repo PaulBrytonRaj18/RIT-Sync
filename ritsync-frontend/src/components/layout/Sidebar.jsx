@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, BookOpen, CheckSquare, Users, Settings,
-         BarChart2, CalendarCheck, ShieldCheck, LogOut } from 'lucide-react'
+import { LayoutDashboard, BookOpen, CheckSquare, Users,
+         CalendarCheck, ShieldCheck, LogOut, Smartphone, BarChart2 } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import clsx from 'clsx'
 
@@ -9,22 +9,21 @@ const NAV = {
     { to: '/student',              icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/student/courses',      icon: BookOpen,        label: 'My courses' },
     { to: '/student/attendance',   icon: CheckSquare,     label: 'My attendance' },
-    { to: '/student/face-enroll',  icon: ShieldCheck,     label: 'Face ID setup' },
+    { to: '/student/face-enroll', icon: ShieldCheck,      label: 'Face ID setup' },
+    { to: '/student/devices',     icon: Smartphone,       label: 'My devices' },
   ],
   TEACHER: [
     { to: '/teacher',              icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/teacher/courses',      icon: BookOpen,        label: 'My courses' },
-    { to: '/teacher/sessions',     icon: CalendarCheck,   label: 'Sessions' },
+    { to: '/teacher/sessions',     icon: CalendarCheck,    label: 'Sessions' },
     { to: '/teacher/attendance',   icon: CheckSquare,     label: 'Attendance' },
-    { to: '/teacher/reports',      icon: BarChart2,       label: 'Reports' },
   ],
   ADMIN: [
     { to: '/admin',                icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/admin/users',          icon: Users,           label: 'Users' },
-    { to: '/admin/courses',        icon: BookOpen,        label: 'Courses' },
-    { to: '/admin/attendance',     icon: CheckSquare,     label: 'Attendance' },
-    { to: '/admin/analytics',      icon: BarChart2,       label: 'Analytics' },
-    { to: '/admin/audit',          icon: ShieldCheck,     label: 'Audit log' },
+    { to: '/admin/users',          icon: Users,            label: 'Users' },
+    { to: '/admin/courses',        icon: BookOpen,         label: 'Courses' },
+    { to: '/admin/attendance',     icon: CheckSquare,      label: 'Attendance' },
+    { to: '/admin/analytics',      icon: BarChart2,        label: 'Analytics' },
   ],
 }
 
@@ -60,9 +59,6 @@ export default function Sidebar({ onClose }) {
         </div>
         <div className="sidebar-section">
           <p className="sidebar-title">Account</p>
-          <NavLink to="/settings" className={({ isActive }) => clsx('nav-link', isActive && 'active')} onClick={onClose}>
-            <Settings size={17} /> Settings
-          </NavLink>
         </div>
       </nav>
 

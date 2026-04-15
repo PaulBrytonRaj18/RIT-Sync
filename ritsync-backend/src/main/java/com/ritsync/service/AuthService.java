@@ -60,6 +60,11 @@ public class AuthService {
             .build();
 
         user = userRepository.save(user);
+
+        if (req.deviceFingerprint() != null && !req.deviceFingerprint().isBlank()) {
+            bindDevice(user, req.deviceFingerprint(), req.deviceName());
+        }
+
         auditService.log(user.getId(), user.getEmail(), "USER_REGISTERED", "users", user.getId(), null, null);
 
         var principal = new UserPrincipal(user);
@@ -91,6 +96,10 @@ public class AuthService {
     }
 
     private void bindDevice(User user, String fingerprint, String deviceName) {
+        if (fingerprint == null || fingerprint.isBlank()) {
+            return;
+        }
+        
         var existing = deviceBindingRepo.findByUserIdAndDeviceFingerprint(user.getId(), fingerprint);
         if (existing.isPresent()) {
             existing.get().setLastSeenAt(LocalDateTime.now());
@@ -100,10 +109,10 @@ public class AuthService {
                 .user(user)
                 .deviceFingerprint(fingerprint)
                 .deviceName(deviceName)
-                .isTrusted(true)
+                .isTrusted(false)
                 .build();
             deviceBindingRepo.save(binding);
-            log.info("New device bound for user {}: {}", user.getEmail(), deviceName);
+            log.info("New device registered for user {}: {} (requires verification)", user.getEmail(), deviceName);
         }
     }
 

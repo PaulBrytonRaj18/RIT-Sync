@@ -2,11 +2,13 @@ import { getAllSyncItems, deleteSyncItem, incrementRetry, getSyncQueueCount } fr
 import { apiClient } from '../api/client'
 
 const MAX_RETRIES = 3
+const MAX_TOTAL_RETRIES = 10
 
 export async function processSyncQueue(onProgress) {
   const items = await getAllSyncItems()
   let succeeded = 0
   let failed = 0
+  let totalRetries = 0
 
   for (const item of items) {
     if (item.retryCount >= MAX_RETRIES) {
@@ -14,6 +16,11 @@ export async function processSyncQueue(onProgress) {
       failed++
       continue
     }
+    
+    if (totalRetries >= MAX_TOTAL_RETRIES) {
+      break
+    }
+    
     try {
       await apiClient({
         method:  item.method,
@@ -30,6 +37,7 @@ export async function processSyncQueue(onProgress) {
         failed++
       } else {
         await incrementRetry(item.id)
+        totalRetries++
       }
     }
   }

@@ -1,27 +1,31 @@
 import { openDB } from 'idb'
 
 const DB_NAME = 'ritsync-offline'
-const DB_VERSION = 1
+const DB_VERSION = 2
 let dbPromise = null
 
 export function getDB() {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('syncQueue')) {
-          const sq = db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true })
-          sq.createIndex('by-createdAt', 'createdAt')
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          if (!db.objectStoreNames.contains('syncQueue')) {
+            const sq = db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true })
+            sq.createIndex('by-createdAt', 'createdAt')
+          }
+          if (!db.objectStoreNames.contains('sessions'))
+            db.createObjectStore('sessions', { keyPath: 'id' })
+          if (!db.objectStoreNames.contains('attendanceQueue')) {
+            const aq = db.createObjectStore('attendanceQueue', { keyPath: 'localId', autoIncrement: true })
+            aq.createIndex('by-status', 'syncStatus')
+          }
+          if (!db.objectStoreNames.contains('courses'))
+            db.createObjectStore('courses', { keyPath: 'id' })
+          if (!db.objectStoreNames.contains('profile'))
+            db.createObjectStore('profile', { keyPath: 'key' })
+          if (!db.objectStoreNames.contains('faceDescriptors'))
+            db.createObjectStore('faceDescriptors', { keyPath: 'userId' })
         }
-        if (!db.objectStoreNames.contains('sessions'))
-          db.createObjectStore('sessions', { keyPath: 'id' })
-        if (!db.objectStoreNames.contains('attendanceDrafts')) {
-          const ad = db.createObjectStore('attendanceDrafts', { keyPath: 'localId', autoIncrement: true })
-          ad.createIndex('by-sessionId', 'sessionId')
-        }
-        if (!db.objectStoreNames.contains('courses'))
-          db.createObjectStore('courses', { keyPath: 'id' })
-        if (!db.objectStoreNames.contains('profile'))
-          db.createObjectStore('profile', { keyPath: 'key' })
       }
     })
   }
@@ -61,15 +65,15 @@ export async function getCachedSessions() {
 }
 export async function saveAttendanceDraft(draft) {
   const db = await getDB()
-  return db.add('attendanceDrafts', { ...draft, savedAt: Date.now() })
+  return db.add('attendanceQueue', { ...draft, savedAt: Date.now(), syncStatus: 'pending' })
 }
 export async function getAllAttendanceDrafts() {
   const db = await getDB()
-  return db.getAll('attendanceDrafts')
+  return db.getAll('attendanceQueue')
 }
 export async function deleteAttendanceDraft(localId) {
   const db = await getDB()
-  return db.delete('attendanceDrafts', localId)
+  return db.delete('attendanceQueue', localId)
 }
 export async function cacheCourses(courses) {
   const db = await getDB()
@@ -89,4 +93,61 @@ export async function saveProfile(user) {
 export async function getProfile() {
   const db = await getDB()
   return db.get('profile', 'user')
+}
+
+export async function saveFaceDescriptor(userId, descriptor) {
+  const db = await getDB()
+  return db.put('faceDescriptors', {
+    userId,
+    descriptor: Array.from(descriptor),
+    savedAt: new Date().toISOString(),
+  })
+}
+export async function getFaceDescriptor(userId) {
+  const db = await getDB()
+  const record = await db.get('faceDescriptors', userId)
+  if (!record) return null
+  return new Float32Array(record.descriptor)
+}
+
+export async function queueAttendance(record) {
+  const db = await getDB()
+  return db.add('attendanceQueue', {
+    ...record,
+    syncStatus: 'pending',
+    createdAt: new Date().toISOString(),
+  })
+}
+export async function getPendingRecords() {
+  const db = await getDB()
+  return db.getAllFromIndex('attendanceQueue', 'by-status', 'pending')
+}
+export async function getPendingCount() {
+  const records = await getPendingRecords()
+  return records.length
+}
+export async function markSynced(localId) {
+  const db = await getDB()
+  const tx = db.transaction('attendanceQueue', 'readwrite')
+  const store = tx.objectStore('attendanceQueue')
+  const item = await store.get(localId)
+  if (item) {
+    item.syncStatus = 'synced'
+    item.syncedAt = new Date().toISOString()
+    await store.put(item)
+  }
+  await tx.done
+}
+export async function markFailed(localId, error) {
+  const db = await getDB()
+  const tx = db.transaction('attendanceQueue', 'readwrite')
+  const store = tx.objectStore('attendanceQueue')
+  const item = await store.get(localId)
+  if (item) {
+    item.syncStatus = 'failed'
+    item.error = error
+    item.retryCount = (item.retryCount || 0) + 1
+    await store.put(item)
+  }
+  await tx.done
 }

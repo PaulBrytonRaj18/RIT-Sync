@@ -50,8 +50,18 @@ public class AttendanceService {
 
         Optional<AttendanceRecord> existing =
             attendanceRepo.findBySessionIdAndStudentId(req.sessionId(), studentId);
-        if (existing.isPresent() && existing.get().getStatus() == AttendanceStatus.PRESENT) {
-            throw RitSyncException.conflict("Attendance already marked for this session.");
+        if (existing.isPresent()) {
+            AttendanceRecord existingRecord = existing.get();
+            if (existingRecord.getStatus() == AttendanceStatus.PRESENT) {
+                throw RitSyncException.conflict("Attendance already marked as present for this session.");
+            }
+            if (existingRecord.getStatus() == AttendanceStatus.EXCUSED) {
+                throw RitSyncException.conflict("Attendance already excused for this session.");
+            }
+            if (!existingRecord.getManuallyOverridden() && existingRecord.getMarkedAt() != null) {
+                log.info("Student {} already has attendance record for session {} with status {}",
+                    studentId, req.sessionId(), existingRecord.getStatus());
+            }
         }
 
         FaceVerificationService.VerificationResult faceResult =
@@ -104,7 +114,7 @@ public class AttendanceService {
 
         notificationService.checkAndNotifyThreshold(studentId, session.getCourse().getId());
 
-        String message = buildMessage(faceResult.verified(), gpsVerified, deviceResult.verified(), allVerified);
+        String message = buildMessage(faceResult.verified(), gpsVerified, deviceResult.verified(), allVerified, session);
 
         return new MarkAttendanceResponse(
             record.getId(), status,
@@ -154,12 +164,15 @@ public class AttendanceService {
         return AttendanceRecordResponse.from(record);
     }
 
-    private String buildMessage(boolean face, boolean gps, boolean device, boolean all) {
+    private String buildMessage(boolean face, boolean gps, boolean device, boolean all, Session session) {
         if (all) return "Attendance marked successfully. All three verifications passed.";
-        StringBuilder sb = new StringBuilder("Attendance could not be marked. Failed: ");
-        if (!face)   sb.append("Face ID (look directly at camera). ");
-        if (!gps)    sb.append("GPS location (you appear to be outside the classroom). ");
-        if (!device) sb.append("Device not trusted (use your registered device). ");
+        StringBuilder sb = new StringBuilder("Attendance could not be marked. ");
+        
+        if (!face)   sb.append("Face ID verification failed - ensure you are looking directly at the camera. ");
+        if (!gps)    sb.append(String.format("GPS location outside the %dm classroom radius. ", session.getGeofenceRadiusM()));
+        if (!device) sb.append("This device is not registered for attendance. Please use a registered device. ");
+        
+        sb.append("Contact your teacher if you believe this is an error.");
         return sb.toString().trim();
     }
 }

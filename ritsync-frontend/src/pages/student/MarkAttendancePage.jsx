@@ -27,6 +27,7 @@ export default function MarkAttendancePage() {
   const [selectedSession, setSelectedSession] = useState(null)
   const [loadingSessions, setLoadingSessions] = useState(true)
   const [storedDescriptor, setStoredDescriptor] = useState(null)
+  const [faceRequired, setFaceRequired] = useState(false)
 
   const [currentStep, setCurrentStep] = useState(STEPS.FACE)
   const [stepStatuses, setStepStatuses] = useState({ 1: 'active', 2: 'idle', 3: 'idle' })
@@ -44,6 +45,12 @@ export default function MarkAttendancePage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
+    if (!user?.faceEnrolled) {
+      setFaceRequired(true)
+      setLoadingSessions(false)
+      return
+    }
+    
     const load = async () => {
       try {
         const sessions = isOnline
@@ -58,7 +65,7 @@ export default function MarkAttendancePage() {
       }
     }
     load()
-  }, [isOnline])
+  }, [isOnline, user?.faceEnrolled])
 
   useEffect(() => {
     if (!selectedSession) return
@@ -106,6 +113,11 @@ export default function MarkAttendancePage() {
   }, [advanceTo])
 
   const onDeviceResult = useCallback(async ({ fingerprint, deviceName }) => {
+    if (!selectedSession?.id) {
+      toast.error('Session information missing. Please select a session again.')
+      return
+    }
+    
     setVerificationData(prev => ({
       ...prev,
       deviceFingerprint: fingerprint,
@@ -153,6 +165,33 @@ export default function MarkAttendancePage() {
     setStepStatuses({ 1: 'active', 2: 'idle', 3: 'idle' })
     setResult(null)
     setVerificationData({ faceDescriptor: null, faceVerified: false, gpsPosition: null, gpsDistance: null, deviceFingerprint: null, deviceName: null })
+  }
+
+  const handleEnrollNow = () => {
+    navigate('/student/face-enroll')
+  }
+
+  if (faceRequired) {
+    return (
+      <div className="max-w-md mx-auto animate-fade-in">
+        <div className="card text-center space-y-4">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+            <svg className="w-8 h-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Face ID Required</h3>
+            <p className="text-sm text-gray-500 mt-2">
+              You must enroll your Face ID before marking attendance. This helps verify your identity during attendance.
+            </p>
+          </div>
+          <Button variant="primary" className="w-full" onClick={handleEnrollNow}>
+            Enroll Face ID Now
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (loadingSessions) {

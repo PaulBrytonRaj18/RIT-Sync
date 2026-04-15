@@ -35,27 +35,40 @@ export default function FaceEnrollPage() {
         setStep('camera')
         return
       }
-      setCaptures(prev => [...prev, desc])
-      if (captures.length < 2) {
-        toast.success(`Sample ${captures.length + 1}/3 captured — keep going!`)
-        setStep('camera')
-      } else {
-        // Average the descriptors for robustness
-        const avg = desc.map((_, i) =>
-          (captures[0][i] + captures[1][i] + desc[i]) / 3
-        )
+      
+      setCaptures(prev => {
+        const newCaptures = [...prev, desc]
+        
+        if (newCaptures.length < 3) {
+          setStep('camera')
+          setTimeout(() => {
+            toast.success(`Sample ${newCaptures.length}/3 captured — keep going!`)
+          }, 100)
+          return newCaptures
+        }
+        
+        const avg = newCaptures.reduce((acc, curr, _, arr) => 
+          curr.map((val, i) => val + (acc[i] || 0) / arr.length), Array(128).fill(0))
+        
         setSaving(true)
-        await usersApi.enrollFaceDescriptor(avg)
-        stopCamera()
-        updateUser({ ...user, faceEnrolled: true })
-        setStep('done')
-        toast.success('Face ID enrolled successfully!')
-      }
+        usersApi.enrollFaceDescriptor(avg)
+          .then(() => {
+            stopCamera()
+            updateUser({ ...user, faceEnrolled: true })
+            setStep('done')
+            toast.success('Face ID enrolled successfully!')
+          })
+          .catch(err => {
+            toast.error(err.message || 'Save failed — try again')
+            setStep('camera')
+          })
+          .finally(() => setSaving(false))
+        
+        return newCaptures
+      })
     } catch (err) {
       toast.error(err.message || 'Capture failed — try again')
       setStep('camera')
-    } finally {
-      setSaving(false)
     }
   }
 

@@ -1,12 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Camera, AlertCircle, RefreshCw } from 'lucide-react'
 import { useFaceVerification } from '../../hooks/useFaceVerification'
-import useAuthStore from '../../store/authStore'
 import Button from '../ui/Button'
 import Spinner from '../ui/Spinner'
 
 export default function FaceStep({ onResult, storedDescriptor }) {
-  const user = useAuthStore(s => s.user)
   const {
     status, videoRef,
     loadModels, startCamera, stopCamera,
@@ -16,6 +14,7 @@ export default function FaceStep({ onResult, storedDescriptor }) {
   const [phase,   setPhase]   = useState('init')
   const [error,   setError]   = useState('')
   const [countdown, setCountdown] = useState(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -46,7 +45,7 @@ export default function FaceStep({ onResult, storedDescriptor }) {
       cancelled = true
       stopCamera()
     }
-  }, [])
+  }, [retryKey])
 
   const capture = useCallback(async () => {
     setPhase('capturing')
@@ -70,9 +69,8 @@ export default function FaceStep({ onResult, storedDescriptor }) {
 
   const retry = () => {
     setError('')
-    setPhase('init')
     stopCamera()
-    window.location.reload()
+    setRetryKey(k => k + 1)
   }
 
   return (

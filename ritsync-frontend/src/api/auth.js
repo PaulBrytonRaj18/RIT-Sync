@@ -3,12 +3,18 @@ import { getDeviceFingerprint } from '../utils/device'
 
 export const authApi = {
   register: async (data) => {
-    const res = await apiClient.post('/auth/register', data)
+    const deviceFingerprint = await getDeviceFingerprint()
+    const deviceName = navigator.userAgent.slice(0, 100)
+    const res = await apiClient.post('/auth/register', {
+      ...data,
+      deviceFingerprint,
+      deviceName,
+    })
     return res.data.data
   },
 
   login: async ({ email, password }) => {
-    const deviceFingerprint = getDeviceFingerprint()
+    const deviceFingerprint = await getDeviceFingerprint()
     const deviceName        = navigator.userAgent.slice(0, 100)
     const res = await apiClient.post('/auth/login', {
       email, password, deviceFingerprint, deviceName

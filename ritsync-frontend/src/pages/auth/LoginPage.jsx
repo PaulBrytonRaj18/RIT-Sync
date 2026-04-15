@@ -89,9 +89,8 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Demo hint */}
-        <div className="mt-4 p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700 text-center">
-          Demo: admin@ritsync.com / any password
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700 text-center">
+          New here? Create an account to get started
         </div>
       </div>
     </div>

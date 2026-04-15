@@ -1,6 +1,9 @@
+import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import useAuthStore from './store/authStore'
+import useOfflineStore, { registerSyncTrigger } from './store/offlineStore'
 import AppShell from './components/layout/AppShell'
+import { processSyncQueue } from './offline/syncEngine'
 
 // Auth
 import LoginPage    from './pages/auth/LoginPage'
@@ -12,6 +15,7 @@ import StudentCoursesPage  from './pages/student/StudentCoursesPage'
 import StudentAttendancePage from './pages/student/StudentAttendancePage'
 import FaceEnrollPage      from './pages/student/FaceEnrollPage'
 import MarkAttendancePage  from './pages/student/MarkAttendancePage'
+import DeviceManagementPage from './pages/student/DeviceManagementPage'
 
 // Teacher
 import TeacherDashboard    from './pages/teacher/TeacherDashboard'
@@ -40,7 +44,35 @@ function roleLanding(role) {
   return { STUDENT: '/student', TEACHER: '/teacher', ADMIN: '/admin' }[role] ?? '/login'
 }
 
+async function handleSync() {
+  try {
+    const result = await processSyncQueue()
+    if (result.succeeded > 0) {
+      console.log(`[RIT-Sync] Synced ${result.succeeded} items successfully`)
+    }
+  } catch (err) {
+    console.error('[RIT-Sync] Sync failed:', err)
+  }
+}
+
+function RootRedirect() {
+  const { isAuthenticated, user } = useAuthStore()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  return <Navigate to={roleLanding(user?.role)} replace />
+}
+
 export default function App() {
+  const { isAuthenticated } = useAuthStore()
+  const triggerSync = useOfflineStore(s => s.triggerSync)
+
+  useEffect(() => {
+    registerSyncTrigger(handleSync)
+    
+    if (isAuthenticated) {
+      handleSync()
+    }
+  }, [isAuthenticated])
+
   return (
     <Routes>
       {/* Public */}
@@ -54,6 +86,7 @@ export default function App() {
         <Route path="/student/courses"                element={<StudentCoursesPage />} />
         <Route path="/student/attendance"             element={<StudentAttendancePage />} />
         <Route path="/student/face-enroll"            element={<FaceEnrollPage />} />
+        <Route path="/student/devices"               element={<DeviceManagementPage />} />
         <Route path="/student/mark/:sessionId"        element={<MarkAttendancePage />} />
       </Route>
 
@@ -79,10 +112,4 @@ export default function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
-}
-
-function RootRedirect() {
-  const { isAuthenticated, user } = useAuthStore()
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  return <Navigate to={roleLanding(user?.role)} replace />
 }

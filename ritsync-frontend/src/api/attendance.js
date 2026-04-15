@@ -1,14 +1,8 @@
 import { apiClient } from './client'
 import { enqueueSyncItem, saveAttendanceDraft } from '../offline/db'
-import { getDeviceFingerprint } from '../utils/device'
 
 export const attendanceApi = {
   markAttendance: async (payload, isOffline = false) => {
-    const body = {
-      ...payload,
-      deviceFingerprint: getDeviceFingerprint(),
-    }
-
     if (isOffline) {
       await saveAttendanceDraft(body)
       await enqueueSyncItem({

@@ -1,6 +1,5 @@
 // Generates a stable device fingerprint from browser properties.
-// Not cryptographic — just enough uniqueness to bind a device.
-export function getDeviceFingerprint() {
+export async function getDeviceFingerprint() {
   const cached = sessionStorage.getItem('_device_fp')
   if (cached) return cached
 
@@ -14,15 +13,17 @@ export function getDeviceFingerprint() {
     screen.width + 'x' + screen.height,
     new Date().getTimezoneOffset(),
     nav.platform || '',
+    nav.deviceMemory || 0,
+    screen.pixelDepth || 0,
   ]
   const raw = parts.join('|')
-  // Simple djb2 hash
-  let hash = 5381
-  for (let i = 0; i < raw.length; i++) {
-    hash = ((hash << 5) + hash) ^ raw.charCodeAt(i)
-    hash = hash >>> 0
-  }
-  const fp = hash.toString(16).padStart(8, '0')
+  
+  const encoder = new TextEncoder()
+  const data = encoder.encode(raw)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const fp = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
+  
   sessionStorage.setItem('_device_fp', fp)
   return fp
 }

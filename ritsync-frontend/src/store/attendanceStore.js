@@ -1,21 +1,16 @@
 import { create } from 'zustand'
-import { db } from '../utils/db'
+import { queueAttendance, getPendingCount } from '../offline/db'
 
 export const useAttendanceStore = create((set, get) => ({
-  // Current session being marked
   activeSession: null,
-  // Verification states
   verifications: {
-    face:   'pending', // pending | checking | passed | failed
+    face:   'pending',
     gps:    'pending',
     device: 'pending',
   },
-  // Offline queue count
   pendingSync: 0,
-  // Recent records
   records: [],
 
-  // Start an attendance session
   startSession: (session) => set({
     activeSession: session,
     verifications: { face: 'pending', gps: 'pending', device: 'pending' }
@@ -35,16 +30,14 @@ export const useAttendanceStore = create((set, get) => ({
     return v.face === 'passed' && v.gps === 'passed' && v.device === 'passed'
   },
 
-  // Queue record for background sync (offline-first)
   queueRecord: async (record) => {
-    await db.queueAttendance(record)
-    const count = await db.getPendingCount()
+    await queueAttendance(record)
+    const count = await getPendingCount()
     set({ pendingSync: count })
   },
 
-  // Load pending count from IndexedDB
   loadPendingCount: async () => {
-    const count = await db.getPendingCount()
+    const count = await getPendingCount()
     set({ pendingSync: count })
   },
 
