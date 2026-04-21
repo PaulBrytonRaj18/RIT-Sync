@@ -8,22 +8,27 @@ export async function getDeviceFingerprint() {
   const parts = [
     nav.userAgent,
     nav.language,
+    nav.languages?.join(',') || '',
     nav.hardwareConcurrency,
+    nav.deviceMemory || 0,
     screen.colorDepth,
     screen.width + 'x' + screen.height,
+    screen.pixelDepth || 0,
     new Date().getTimezoneOffset(),
     nav.platform || '',
-    nav.deviceMemory || 0,
-    screen.pixelDepth || 0,
+    nav.maxTouchPoints || 0,
+    window.devicePixelRatio || 1,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
   ]
+
   const raw = parts.join('|')
-  
+
   const encoder = new TextEncoder()
   const data = encoder.encode(raw)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
-  const fp = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
-  
+  const fp = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+
   sessionStorage.setItem('_device_fp', fp)
   return fp
 }

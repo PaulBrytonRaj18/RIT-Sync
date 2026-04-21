@@ -18,13 +18,28 @@ public class JwtTokenProvider {
     private final long accessExpiry;
     private final long refreshExpiry;
 
+    private static final int MIN_SECRET_LENGTH = 32;
+
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.access-token-expiry-ms}") long accessExpiry,
             @Value("${jwt.refresh-token-expiry-ms}") long refreshExpiry) {
+        validateSecret(secret);
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessExpiry  = accessExpiry;
         this.refreshExpiry = refreshExpiry;
+    }
+
+    private void validateSecret(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT_SECRET cannot be empty. Set JWT_SECRET environment variable.");
+        }
+        if (secret.length() < MIN_SECRET_LENGTH) {
+            throw new IllegalStateException(
+                "JWT_SECRET must be at least " + MIN_SECRET_LENGTH + " characters for secure HS256 signing. " +
+                "Current length: " + secret.length() + ". Generate a secure key: openssl rand -base64 32"
+            );
+        }
     }
 
     public String generateAccessToken(UserPrincipal principal) {

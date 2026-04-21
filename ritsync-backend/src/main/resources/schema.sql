@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS device_bindings (
     device_fingerprint  VARCHAR(255)    NOT NULL,
     device_name         VARCHAR(120),
     platform            VARCHAR(60),
-    is_trusted          BOOLEAN         NOT NULL DEFAULT TRUE,
+    is_trusted          BOOLEAN         NOT NULL DEFAULT FALSE,
     bound_at            TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_seen_at        TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -150,8 +150,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     INDEX idx_notif_unread (user_id, is_read)
 ) ENGINE=InnoDB;
 
--- Seed default admin
-INSERT IGNORE INTO users (name, email, password_hash, role, department)
-VALUES ('System Admin', 'admin@ritsync.com',
-        '$2a$12$placeholder.change.this.on.first.login.XXXXXXXXXX',
-        'ADMIN', 'IT');
+-- NOTE: Do not seed default users in production
+-- First admin should be created via registration or manually with a proper bcrypt hash
+-- Example bcrypt hash for password 'Admin@123' (do not use in production):
+-- $2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.G/pVHvPLZZwKHy

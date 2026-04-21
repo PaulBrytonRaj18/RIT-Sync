@@ -60,6 +60,8 @@ jwt:
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:5173}
+  encryption:
+    key: ${ENCRYPTION_KEY:}
   geofence:
     default-radius-meters: 100
   attendance:

@@ -41,11 +41,11 @@ public class DeviceVerificationService {
             .user(user)
             .deviceFingerprint(fingerprint)
             .deviceName(deviceName != null ? deviceName : "Unknown device")
-            .isTrusted(true)
+            .isTrusted(false)
             .lastSeenAt(LocalDateTime.now())
             .build();
         deviceBindingRepository.save(newBinding);
-        log.info("New device auto-bound for user {}: {}", user.getEmail(), deviceName);
+        log.info("New device bound for user {}: {}. Verification required.", user.getEmail(), deviceName);
         return new DeviceResult(true, true);
     }
 
