@@ -19,6 +19,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.role = :role AND u.department = :dept AND u.isActive = true")
     List<User> findActiveByRoleAndDepartment(Role role, String dept);
 
-    @Query(value = "SELECT CASE WHEN COUNT(fd) > 0 THEN true ELSE false END FROM face_descriptors fd WHERE fd.user_id = :userId", nativeQuery = true)
+    @Query("SELECT COUNT(fd) > 0 FROM FaceDescriptor fd WHERE fd.user.id = :userId")
     boolean existsFaceDescriptorByUserId(Long userId);
+
+    @Query("SELECT fd.user.id FROM FaceDescriptor fd WHERE fd.user.id IN :userIds")
+    List<Long> findUserIdsWithFaceDescriptor(List<Long> userIds);
 }

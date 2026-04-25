@@ -7,6 +7,7 @@ import com.ritsync.exception.RitSyncException;
 import com.ritsync.repository.FaceDescriptorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,10 +17,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class FaceVerificationService {
 
-    private static final double MATCH_THRESHOLD = 0.55;
-
     private final FaceDescriptorRepository faceDescriptorRepository;
     private final ObjectMapper             objectMapper;
+
+    @Value("${app.face.threshold:0.55}")
+    private double matchThreshold;
 
     public record VerificationResult(boolean verified, double distance) {}
 
@@ -46,8 +48,8 @@ public class FaceVerificationService {
         }
 
         double distance = euclideanDistance(storedDescriptor, liveDescriptor);
-        log.debug("Face verification for user {}: distance={} threshold={}", userId, distance, MATCH_THRESHOLD);
-        return new VerificationResult(distance < MATCH_THRESHOLD, distance);
+        log.debug("Face verification for user {}: distance={} threshold={}", userId, distance, matchThreshold);
+        return new VerificationResult(distance < matchThreshold, distance);
     }
 
     private double euclideanDistance(List<Double> a, List<Double> b) {

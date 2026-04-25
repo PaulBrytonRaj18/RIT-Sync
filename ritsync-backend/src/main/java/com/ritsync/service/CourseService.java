@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -56,15 +58,31 @@ public class CourseService {
         return enrollmentRepository.save(enrollment);
     }
 
+    @Transactional(readOnly = true)
     public List<CourseResponse> getStudentCourses(Long studentId) {
-        return courseRepository.findEnrolledCoursesByStudentId(studentId).stream()
-            .map(c -> CourseResponse.from(c, courseRepository.countEnrolledStudents(c.getId())))
+        List<Course> courses = courseRepository.findEnrolledCoursesByStudentId(studentId);
+        List<Long> courseIds = courses.stream().map(Course::getId).toList();
+        Map<Long, Integer> counts = getEnrollmentCounts(courseIds);
+        return courses.stream()
+            .map(c -> CourseResponse.from(c, counts.getOrDefault(c.getId(), 0)))
             .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<CourseResponse> getInstructorCourses(Long instructorId) {
-        return courseRepository.findByInstructorIdAndIsActiveTrue(instructorId).stream()
-            .map(c -> CourseResponse.from(c, courseRepository.countEnrolledStudents(c.getId())))
+        List<Course> courses = courseRepository.findByInstructorIdAndIsActiveTrue(instructorId);
+        List<Long> courseIds = courses.stream().map(Course::getId).toList();
+        Map<Long, Integer> counts = getEnrollmentCounts(courseIds);
+        return courses.stream()
+            .map(c -> CourseResponse.from(c, counts.getOrDefault(c.getId(), 0)))
             .toList();
+    }
+
+    private Map<Long, Integer> getEnrollmentCounts(List<Long> courseIds) {
+        if (courseIds.isEmpty()) return Map.of();
+        Map<Long, Integer> result = new ConcurrentHashMap<>();
+        enrollmentRepository.findByCourseIdInAndIsActiveTrue(courseIds).forEach(e ->
+            result.merge(e.getCourse().getId(), 1, Integer::sum));
+        return result;
     }
 }

@@ -9,7 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -28,9 +30,17 @@ public class UserService {
                 .orElseThrow(() -> RitSyncException.notFound("User not found: " + id));
     }
 
+    @Transactional(readOnly = true)
     public List<UserResponse> getUsersByRole(Role role) {
-        return userRepository.findByRoleAndIsActiveTrue(role).stream()
-                .map(u -> UserResponse.from(u, userRepository.existsFaceDescriptorByUserId(u.getId())))
+        List<User> users = userRepository.findByRoleAndIsActiveTrue(role);
+        if (users.isEmpty()) return users.stream().map(u -> UserResponse.from(u, false)).toList();
+
+        List<Long> userIds = users.stream().map(User::getId).toList();
+        List<Long> enrolledIds = userRepository.findUserIdsWithFaceDescriptor(userIds);
+        Set<Long> enrolledSet = new HashSet<>(enrolledIds);
+
+        return users.stream()
+                .map(u -> UserResponse.from(u, enrolledSet.contains(u.getId())))
                 .toList();
     }
 

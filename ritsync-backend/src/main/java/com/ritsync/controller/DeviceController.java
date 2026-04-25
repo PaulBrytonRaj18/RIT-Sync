@@ -14,9 +14,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
+import java.util.Base64;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -25,9 +26,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DeviceController {
 
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private final DeviceBindingRepository deviceBindingRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+
+    private static String generateSecureToken() {
+        byte[] tokenBytes = new byte[32];
+        SECURE_RANDOM.nextBytes(tokenBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
+    }
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -55,7 +64,7 @@ public class DeviceController {
             return ApiResponse.ok("Device is already trusted", null);
         }
         
-        String token = UUID.randomUUID().toString();
+        String token = generateSecureToken();
         device.setVerificationToken(token);
         device.setVerificationExpiry(LocalDateTime.now().plusHours(24));
         deviceBindingRepository.save(device);

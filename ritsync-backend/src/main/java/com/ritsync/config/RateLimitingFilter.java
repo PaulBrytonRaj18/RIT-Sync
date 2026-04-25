@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -20,6 +21,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RateLimitingFilter implements Filter {
 
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+
+    private static final Set<String> EXCLUDED_PATHS = Set.of(
+            "/auth/login",
+            "/auth/register",
+            "/actuator/health"
+    );
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -30,7 +37,7 @@ public class RateLimitingFilter implements Filter {
 
         String path = httpRequest.getRequestURI();
 
-        if (!path.startsWith("/auth/")) {
+        if (EXCLUDED_PATHS.contains(path)) {
             chain.doFilter(request, response);
             return;
         }

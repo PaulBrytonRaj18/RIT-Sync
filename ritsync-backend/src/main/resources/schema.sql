@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone           VARCHAR(20),
     avatar_url      VARCHAR(500),
     is_active       BOOLEAN             NOT NULL DEFAULT TRUE,
+    is_email_verified BOOLEAN          NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_users_email (email),

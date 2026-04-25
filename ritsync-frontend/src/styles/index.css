@@ -8,8 +8,34 @@
   body {
     @apply bg-surface text-gray-900 antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+    overscroll-behavior: none;
   }
   :focus-visible { @apply outline-none ring-2 ring-primary-500 ring-offset-2; }
+
+  /* Mobile-first touch targets */
+  a, button, input, select, textarea, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Prevent zoom on iOS inputs */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 @layer components {
@@ -37,6 +63,27 @@
 
 @layer utilities {
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-left { padding-left: env(safe-area-inset-left); }
+  .safe-right { padding-right: env(safe-area-inset-right); }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Mobile scroll momentum */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: scroll;
+  }
+
+  /* Touch feedback */
+  .touch-manipulation { touch-action: manipulation; }
+  .no-select { -webkit-user-select: none; user-select: none; }
+
+  /* Fixed positioning helpers */
+  .fixed-inset { @apply fixed inset-0; }
+
+  /* Prevent pull-to-refresh on mobile */
+  .no-pull-refresh {
+    overscroll-behavior: none;
+  }
 }

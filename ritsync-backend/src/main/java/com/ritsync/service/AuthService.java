@@ -83,7 +83,17 @@ public class AuthService {
         UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
         User user = userRepository.findById(principal.getId()).orElseThrow();
 
-        // Update or create device binding
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw RitSyncException.unauthorized("Account is disabled. Please contact administrator.");
+        }
+
+        // Email verification check (skip for now - requires email setup)
+        // if (!Boolean.TRUE.equals(user.getIsEmailVerified())) {
+        //     throw RitSyncException.unauthorized("Please verify your email before logging in.");
+        // }
+
+        log.info("User {} logged in from IP {}", user.getEmail(), "device");
+
         bindDevice(user, req.deviceFingerprint(), req.deviceName());
 
         auditService.log(user.getId(), user.getEmail(), "USER_LOGIN", "users", user.getId(), null, null);
@@ -118,5 +128,9 @@ public class AuthService {
 
     public boolean isDeviceTrusted(Long userId, String fingerprint) {
         return deviceBindingRepo.existsByUserIdAndDeviceFingerprintAndIsTrustedTrue(userId, fingerprint);
+    }
+
+    public String encodePassword(String rawPassword) {
+        return passwordEncoder.encode(rawPassword);
     }
 }

@@ -1,10 +1,8 @@
 package com.ritsync.config;
 
 import com.ritsync.repository.UserRepository;
+import com.ritsync.security.CustomUserDetailsService;
 import com.ritsync.security.JwtAuthenticationFilter;
-import com.ritsync.security.UserPrincipal;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -16,7 +14,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -31,14 +28,24 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtFilter;
     private final UserRepository userRepository;
+    private final JwtAuthenticationFilter jwtFilter;
+    private final CustomUserDetailsService customUserDetailsService;
 
-    @Value("${app.cors.allowed-origins}")
-    private List<String> allowedOrigins;
+    public SecurityConfig(UserRepository userRepository, 
+                          JwtAuthenticationFilter jwtFilter,
+                          CustomUserDetailsService customUserDetailsService) {
+        this.userRepository = userRepository;
+        this.jwtFilter = jwtFilter;
+        this.customUserDetailsService = customUserDetailsService;
+    }
+
+    private static final List<String> ALLOWED_ORIGINS = List.of(
+            "http://localhost:3000",
+            "http://localhost:5173"
+    );
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -48,9 +55,9 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(headers -> headers
                 .frameOptions(frame -> frame.deny())
-                .xssProtection(xss -> xss.headerValue(null))
                 .contentTypeOptions(content -> {})
                 .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                .cacheControl(cache -> {})
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
@@ -69,9 +76,7 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return email -> userRepository.findByEmail(email)
-                .map(UserPrincipal::new)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
+        return customUserDetailsService;
     }
 
     @Bean
@@ -95,7 +100,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         var config = new CorsConfiguration();
-        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedOrigins(ALLOWED_ORIGINS);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "X-Device-Fingerprint"));
         config.setExposedHeaders(List.of("Authorization"));

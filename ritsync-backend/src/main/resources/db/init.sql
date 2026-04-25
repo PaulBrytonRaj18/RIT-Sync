@@ -9,7 +9,7 @@ USE ritsync_db;
 INSERT IGNORE INTO users (
     name, email, password_hash, role, department,
     roll_number, employee_id, phone,
-    is_active, created_at, updated_at
+    is_active, is_email_verified, created_at, updated_at
 ) VALUES
 -- Admin
 (
@@ -17,7 +17,7 @@ INSERT IGNORE INTO users (
     '$2a$12$LwZzStPTiipUBmFCIzKXx.GbTKq7EWPFv2P9YpTk2Vz5oy0yIOFYm',
     'ADMIN', 'IT',
     NULL, NULL, NULL,
-    TRUE, NOW(), NOW()
+    TRUE, TRUE, NOW(), NOW()
 ),
 -- Teacher
 (
@@ -25,7 +25,7 @@ INSERT IGNORE INTO users (
     '$2a$12$LwZzStPTiipUBmFCIzKXx.GbTKq7EWPFv2P9YpTk2Vz5oy0yIOFYm',
     'TEACHER', 'Computer Science',
     NULL, 'EMP001', NULL,
-    TRUE, NOW(), NOW()
+    TRUE, TRUE, NOW(), NOW()
 ),
 -- Student
 (
@@ -33,5 +33,5 @@ INSERT IGNORE INTO users (
     '$2a$12$LwZzStPTiipUBmFCIzKXx.GbTKq7EWPFv2P9YpTk2Vz5oy0yIOFYm',
     'STUDENT', 'Computer Science',
     '21CS001', NULL, NULL,
-    TRUE, NOW(), NOW()
+    TRUE, TRUE, NOW(), NOW()
 );

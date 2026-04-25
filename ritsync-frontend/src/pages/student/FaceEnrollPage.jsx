@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Camera, CheckCircle, AlertCircle, RefreshCw, Info } from 'lucide-react'
 import { useFaceVerification } from '../../hooks/useFaceVerification'
 import { usersApi } from '../../api/users'
@@ -8,7 +8,7 @@ import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import toast from 'react-hot-toast'
 
-const STEPS = ['instructions', 'camera', 'capturing', 'done']
+const STEPS = ['instructions', 'camera', 'capturing', 'saving', 'done']
 
 export default function FaceEnrollPage() {
   const user       = useAuthStore(s => s.user)
@@ -16,7 +16,7 @@ export default function FaceEnrollPage() {
   const { status, videoRef, loadModels, startCamera, stopCamera, captureDescriptor } = useFaceVerification()
   const [step, setStep]     = useState('instructions')
   const [saving, setSaving] = useState(false)
-  const [captures, setCaptures] = useState([])   // collect multiple samples
+  const [captures, setCaptures] = useState([])
 
   const isEnrolled = user?.faceEnrolled
 
@@ -35,40 +35,32 @@ export default function FaceEnrollPage() {
         setStep('camera')
         return
       }
-      
-      setCaptures(prev => {
-        const newCaptures = [...prev, desc]
-        
-        if (newCaptures.length < 3) {
-          setStep('camera')
-          setTimeout(() => {
-            toast.success(`Sample ${newCaptures.length}/3 captured — keep going!`)
-          }, 100)
-          return newCaptures
-        }
-        
-        const avg = newCaptures.reduce((acc, curr, _, arr) => 
-          curr.map((val, i) => val + (acc[i] || 0) / arr.length), Array(128).fill(0))
-        
-        setSaving(true)
-        usersApi.enrollFaceDescriptor(avg)
-          .then(() => {
-            stopCamera()
-            updateUser({ ...user, faceEnrolled: true })
-            setStep('done')
-            toast.success('Face ID enrolled successfully!')
-          })
-          .catch(err => {
-            toast.error(err.message || 'Save failed — try again')
-            setStep('camera')
-          })
-          .finally(() => setSaving(false))
-        
-        return newCaptures
-      })
+
+      const newCaptures = [...captures, desc]
+      setCaptures(newCaptures)
+
+      if (newCaptures.length < 3) {
+        setStep('camera')
+        toast.success(`Sample ${newCaptures.length}/3 captured — keep going!`)
+        return
+      }
+
+      setStep('saving')
+      setSaving(true)
+
+      const avg = newCaptures.reduce((acc, curr, _, arr) =>
+        curr.map((val, i) => val + (acc[i] || 0) / arr.length), Array(128).fill(0))
+
+      await usersApi.enrollFaceDescriptor(avg)
+      stopCamera()
+      updateUser({ ...user, faceEnrolled: true })
+      setStep('done')
+      toast.success('Face ID enrolled successfully!')
     } catch (err) {
       toast.error(err.message || 'Capture failed — try again')
       setStep('camera')
+    } finally {
+      setSaving(false)
     }
   }
 

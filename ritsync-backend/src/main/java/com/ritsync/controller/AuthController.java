@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -26,5 +27,11 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest req) {
         return ApiResponse.ok("Login successful", authService.login(req));
+    }
+
+    @PostMapping("/encode")
+    public ApiResponse<String> encode(@RequestBody Map<String, String> body) {
+        String password = body.get("password");
+        return ApiResponse.ok("Encoded", authService.encodePassword(password));
     }
 }

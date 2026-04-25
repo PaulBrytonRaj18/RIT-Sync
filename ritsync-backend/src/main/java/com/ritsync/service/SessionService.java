@@ -95,16 +95,19 @@ public class SessionService {
         return SessionResponse.from(session);
     }
 
+    @Transactional
     public List<SessionResponse> getCourseSessions(Long courseId) {
         return sessionRepo.findByCourseIdOrderByStartTimeDesc(courseId)
             .stream().map(SessionResponse::from).toList();
     }
 
+    @Transactional
     public List<SessionResponse> getOpenSessions() {
         return sessionRepo.findByIsOpenTrue()
             .stream().map(SessionResponse::from).toList();
     }
 
+    @Transactional
     public SessionResponse getById(Long sessionId) {
         return sessionRepo.findById(sessionId)
             .map(SessionResponse::from)

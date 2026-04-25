@@ -30,6 +30,8 @@ export const useAttendanceStore = create((set, get) => ({
     return v.face === 'passed' && v.gps === 'passed' && v.device === 'passed'
   },
 
+  getVerifications: () => get().verifications,
+
   queueRecord: async (record) => {
     await queueAttendance(record)
     const count = await getPendingCount()

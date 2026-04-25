@@ -42,19 +42,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface p-4">
-      <div className="w-full max-w-md">
-        {/* Brand */}
+    <div className="min-h-screen flex items-center justify-center bg-surface px-4 py-6 safe-top safe-bottom">
+      <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-primary-600 rounded-2xl mb-4 shadow-lg">
-            <CheckSquare size={28} className="text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4 shadow-lg">
+            <CheckSquare size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">RIT-Sync</h1>
-          <p className="text-gray-500 text-sm mt-1">Smart Attendance Platform</p>
+          <h1 className="text-3xl font-bold text-gray-900">RIT-Sync</h1>
+          <p className="text-gray-500 text-base mt-1">Smart Attendance</p>
         </div>
 
         <div className="card shadow-card-hover">
-          <h2 className="text-lg font-semibold text-gray-900 mb-5">Sign in to your account</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-5">Sign in</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input label="Email" type="email" placeholder="you@rit.edu"
               value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
@@ -64,33 +63,29 @@ export default function LoginPage() {
               <label className="label">Password</label>
               <div className="relative">
                 <input type={showPwd ? 'text' : 'password'}
-                  className="input pr-10"
-                  placeholder="••••••••"
+                  className="input pr-12"
+                  placeholder="Enter password"
                   value={form.password}
                   onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                   autoComplete="current-password" />
                 <button type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 touch-manipulation"
                   onClick={() => setShowPwd(!showPwd)}>
-                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPwd ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-              {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
+              {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
             </div>
 
-            <Button type="submit" variant="primary" className="w-full mt-2" loading={loading}>
-              {loading ? 'Signing in…' : 'Sign in'}
+            <Button type="submit" variant="primary" className="w-full mt-4 h-12 text-base" loading={loading}>
+              {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
 
-          <p className="text-center text-sm text-gray-500 mt-5">
-            New to RIT-Sync?{' '}
+          <p className="text-center text-base text-gray-500 mt-6">
+            New?{' '}
             <Link to="/register" className="text-primary-600 font-medium hover:underline">Create account</Link>
           </p>
-        </div>
-
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700 text-center">
-          New here? Create an account to get started
         </div>
       </div>
     </div>

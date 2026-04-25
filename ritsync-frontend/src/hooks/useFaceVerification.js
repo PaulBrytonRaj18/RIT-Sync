@@ -3,6 +3,17 @@ import { useState, useRef, useCallback } from 'react'
 const MODELS_URL = '/face-models'
 const FALLBACK   = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights'
 
+async function waitForVideoReady(video) {
+  if (!video) return
+  if (video.readyState >= 3) return
+  await new Promise(resolve => {
+    video.onloadeddata = resolve
+    video.onerror = resolve
+  })
+  if (video.readyState >= 3) return
+  await new Promise(r => setTimeout(r, 500))
+}
+
 export function useFaceVerification() {
   const [status,     setStatus]     = useState('idle')
   const [confidence, setConfidence] = useState(null)
@@ -54,7 +65,8 @@ export function useFaceVerification() {
   const captureDescriptor = useCallback(async () => {
     const faceapi = await loadModels()
     setStatus('detecting')
-    await new Promise(r => setTimeout(r, 200))
+    await waitForVideoReady(videoRef.current)
+
     const detection = await faceapi
       .detectSingleFace(videoRef.current, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
       .withFaceLandmarks()
@@ -69,7 +81,8 @@ export function useFaceVerification() {
   const verifyAgainst = useCallback(async (storedDescriptorArray) => {
     const faceapi = await loadModels()
     setStatus('detecting')
-    await new Promise(r => setTimeout(r, 200))
+    await waitForVideoReady(videoRef.current)
+
     const detection = await faceapi
       .detectSingleFace(videoRef.current, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
       .withFaceLandmarks()

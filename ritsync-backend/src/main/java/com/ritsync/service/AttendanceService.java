@@ -46,6 +46,14 @@ public class AttendanceService {
             throw RitSyncException.badRequest("Session is not open for attendance.");
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(session.getStartTime())) {
+            throw RitSyncException.badRequest("Session has not started yet. Please wait until the session begins.");
+        }
+        if (now.isAfter(session.getEndTime())) {
+            throw RitSyncException.badRequest("Session has ended. Attendance can no longer be marked.");
+        }
+
         User student = userService.findOrThrow(studentId);
 
         Optional<AttendanceRecord> existing =
@@ -124,6 +132,7 @@ public class AttendanceService {
         );
     }
 
+    @Transactional(readOnly = true)
     public List<AttendanceRecordResponse> getSessionAttendance(Long sessionId) {
         return attendanceRepo.findBySessionId(sessionId)
             .stream().map(AttendanceRecordResponse::from).toList();

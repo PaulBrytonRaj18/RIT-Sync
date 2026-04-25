@@ -42,7 +42,7 @@ public class FaceDescriptorController {
     }
 
     @GetMapping("/me/face/descriptor")
-    @PreAuthorize("hasRole('STUDENT')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<List<Double>> getFaceDescriptor(
             @AuthenticationPrincipal UserPrincipal principal) {
         List<Double> descriptor = faceDescriptorService.getDescriptor(principal.getId());

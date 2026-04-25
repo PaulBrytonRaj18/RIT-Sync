@@ -4,17 +4,17 @@ import { enqueueSyncItem, saveAttendanceDraft } from '../offline/db'
 export const attendanceApi = {
   markAttendance: async (payload, isOffline = false) => {
     if (isOffline) {
-      await saveAttendanceDraft(body)
+      await saveAttendanceDraft(payload)
       await enqueueSyncItem({
         method: 'POST',
         url:    '/attendance/mark',
-        data:   JSON.stringify(body),
+        data:   JSON.stringify(payload),
         headers: { 'Content-Type': 'application/json' },
       })
       return { offline: true }
     }
 
-    const res = await apiClient.post('/attendance/mark', body)
+    const res = await apiClient.post('/attendance/mark', payload)
     return res.data.data
   },
 
