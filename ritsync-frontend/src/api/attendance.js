@@ -23,6 +23,11 @@ export const attendanceApi = {
     return res.data.data
   },
 
+  getMyRecords: async () => {
+    const res = await apiClient.get('/attendance/my')
+    return res.data.data
+  },
+
   getStudentStats: async (studentId, courseId) => {
     const res = await apiClient.get(`/attendance/stats/${studentId}/course/${courseId}`)
     return res.data.data

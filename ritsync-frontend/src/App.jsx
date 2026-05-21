@@ -16,16 +16,26 @@ import StudentAttendancePage from './pages/student/StudentAttendancePage'
 import FaceEnrollPage      from './pages/student/FaceEnrollPage'
 import MarkAttendancePage  from './pages/student/MarkAttendancePage'
 import DeviceManagementPage from './pages/student/DeviceManagementPage'
+import ProfilePage from './pages/student/ProfilePage'
+import StudentLeaveRequest from './pages/student/StudentLeaveRequest'
 
 // Teacher
 import TeacherDashboard    from './pages/teacher/TeacherDashboard'
+import SubjectTeacherDashboard from './pages/teacher/SubjectTeacherDashboard'
+import ClassTeacherDashboard from './pages/teacher/ClassTeacherDashboard'
 import TeacherSessionsPage from './pages/teacher/TeacherSessionsPage'
 import TeacherAttendancePage from './pages/teacher/TeacherAttendancePage'
+import AttendanceMarkingPage from './pages/teacher/AttendanceMarkingPage'
+import HeatmapDashboard from './pages/teacher/HeatmapDashboard'
+import SubjectAttendanceView from './pages/teacher/SubjectAttendanceView'
+import DefaulterManagement from './pages/teacher/DefaulterManagement'
+import TeacherLeaveReview from './pages/teacher/TeacherLeaveReview'
 
 // Admin
 import AdminDashboard    from './pages/admin/AdminDashboard'
 import AdminUsersPage    from './pages/admin/AdminUsersPage'
 import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage'
+import AdminAuditPage    from './pages/admin/AdminAuditPage'
 
 function RequireAuth({ children, roles }) {
   const { isAuthenticated, user } = useAuthStore()
@@ -87,17 +97,26 @@ export default function App() {
         <Route path="/student/attendance"             element={<StudentAttendancePage />} />
         <Route path="/student/face-enroll"            element={<FaceEnrollPage />} />
         <Route path="/student/devices"               element={<DeviceManagementPage />} />
+        <Route path="/student/profile"               element={<ProfilePage />} />
+        <Route path="/student/leave"                 element={<StudentLeaveRequest />} />
         <Route path="/student/mark/:sessionId"        element={<MarkAttendancePage />} />
       </Route>
 
-      {/* Teacher */}
-      <Route element={<RequireAuth roles={['TEACHER','ADMIN']}><AppShell /></RequireAuth>}>
-        <Route path="/teacher"                        element={<TeacherDashboard />} />
-        <Route path="/teacher/courses"                element={<StudentCoursesPage />} />
-        <Route path="/teacher/sessions"               element={<TeacherSessionsPage />} />
-        <Route path="/teacher/sessions/new"           element={<TeacherSessionsPage />} />
-        <Route path="/teacher/attendance/:sessionId"  element={<TeacherAttendancePage />} />
-      </Route>
+       {/* Teacher */}
+       <Route element={<RequireAuth roles={['TEACHER','ADMIN']}><AppShell /></RequireAuth>}>
+         <Route path="/teacher"                        element={<TeacherDashboard />} />
+         <Route path="/teacher/subject"                element={<SubjectTeacherDashboard />} />
+         <Route path="/teacher/class"                  element={<ClassTeacherDashboard />} />
+         <Route path="/teacher/courses"                element={<StudentCoursesPage />} />
+         <Route path="/teacher/sessions"               element={<TeacherSessionsPage />} />
+         <Route path="/teacher/sessions/new"           element={<TeacherSessionsPage />} />
+         <Route path="/teacher/attendance/:sessionId"  element={<TeacherAttendancePage />} />
+         <Route path="/teacher/mark/:sessionId"        element={<AttendanceMarkingPage />} />
+         <Route path="/teacher/heatmap/:sessionId"      element={<HeatmapDashboard />} />
+         <Route path="/teacher/subject-attendance/:courseId" element={<SubjectAttendanceView />} />
+         <Route path="/teacher/defaulters"             element={<DefaulterManagement />} />
+        <Route path="/teacher/leave-review"          element={<TeacherLeaveReview />} />
+       </Route>
 
       {/* Admin */}
       <Route element={<RequireAuth roles={['ADMIN']}><AppShell /></RequireAuth>}>
@@ -106,6 +125,7 @@ export default function App() {
         <Route path="/admin/analytics"  element={<AdminAnalyticsPage />} />
         <Route path="/admin/courses"    element={<StudentCoursesPage />} />
         <Route path="/admin/attendance" element={<TeacherAttendancePage sessionId="0" />} />
+        <Route path="/admin/audit"     element={<AdminAuditPage />} />
       </Route>
 
       {/* Catch-all */}

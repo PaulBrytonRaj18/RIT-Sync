@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { attendanceApi } from '../../api/attendance'
 import { sessionsApi } from '../../api/sessions'
 import PageHeader from '../../components/shared/PageHeader'
@@ -54,6 +54,13 @@ export default function TeacherAttendancePage() {
     <div className="animate-fade-in">
       <PageHeader title="Session attendance"
         subtitle={session ? `${session.course?.name} · ${fmt.datetime(session.startTime)}` : ''}
+        action={
+          session && session.isOpen ? (
+            <Link to={`/teacher/mark/${sessionId}`}>
+              <Button variant="primary" size="sm">Quick mark</Button>
+            </Link>
+          ) : null
+        }
       />
 
       <div className="flex gap-4 mb-5 text-sm">

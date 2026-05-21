@@ -4,13 +4,15 @@ import Button from '../ui/Button'
 export default function VerificationResult({ result, onRetry, onDone }) {
   if (!result) return null
 
-  const { allVerified, faceVerified, gpsVerified, deviceVerified, message,
-          faceDistance, gpsDistanceMetres, status } = result
+  const { allVerified, faceVerified, livenessVerified, gpsVerified, beaconVerified,
+          deviceVerified, message, faceDistance, gpsDistanceMetres, status } = result
 
   const checks = [
-    { label: 'Face ID',         ok: faceVerified,   detail: faceDistance !== undefined ? `Distance: ${faceDistance?.toFixed(3)}` : '' },
-    { label: 'GPS location',    ok: gpsVerified,     detail: gpsDistanceMetres !== undefined ? `${Math.round(gpsDistanceMetres)}m from classroom` : '' },
-    { label: 'Device binding',  ok: deviceVerified,  detail: 'Fingerprint matched' },
+    { label: 'Face ID',          ok: faceVerified,      detail: faceDistance !== undefined ? `Distance: ${faceDistance?.toFixed(3)}` : '' },
+    { label: 'Liveness',         ok: livenessVerified,  detail: livenessVerified ? 'Blink detected' : '' },
+    { label: 'GPS location',     ok: gpsVerified,       detail: gpsDistanceMetres !== undefined ? `${Math.round(gpsDistanceMetres)}m from classroom` : '' },
+    { label: 'BLE Beacon',       ok: beaconVerified,    detail: beaconVerified ? 'Proximity verified' : '' },
+    { label: 'Device binding',   ok: deviceVerified,    detail: 'Fingerprint matched' },
   ]
 
   return (

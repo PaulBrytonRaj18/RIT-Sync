@@ -10,13 +10,15 @@ import { getCachedSessions } from '../../offline/db'
 import VerificationStepper from '../../components/verification/VerificationStepper'
 import FaceStep from '../../components/verification/FaceStep'
 import GpsStep from '../../components/verification/GpsStep'
+import BLEStep from '../../components/verification/BLEStep'
 import DeviceStep from '../../components/verification/DeviceStep'
 import VerificationResult from '../../components/verification/VerificationResult'
 import Spinner from '../../components/ui/Spinner'
 import EmptyState from '../../components/ui/EmptyState'
+import Button from '../../components/ui/Button'
 import toast from 'react-hot-toast'
 
-const STEPS = { FACE: 1, GPS: 2, DEVICE: 3, SUBMITTING: 4, RESULT: 5 }
+const STEPS = { FACE: 1, GPS: 2, BLE: 3, DEVICE: 4, SUBMITTING: 5, RESULT: 6 }
 
 export default function MarkAttendancePage() {
   const navigate     = useNavigate()
@@ -30,15 +32,22 @@ export default function MarkAttendancePage() {
   const [faceRequired, setFaceRequired] = useState(false)
 
   const [currentStep, setCurrentStep] = useState(STEPS.FACE)
-  const [stepStatuses, setStepStatuses] = useState({ 1: 'active', 2: 'idle', 3: 'idle' })
+  const [stepStatuses, setStepStatuses] = useState({ 1: 'active', 2: 'idle', 3: 'idle', 4: 'idle' })
 
   const [verificationData, setVerificationData] = useState({
     faceDescriptor: null,
     faceVerified:   false,
+    livenessVerified: false,
+    blinkCount:     0,
     gpsPosition:    null,
     gpsDistance:    null,
+    beaconUuid:     null,
+    beaconToken:    null,
+    beaconRssi:     null,
     deviceFingerprint: null,
     deviceName:     null,
+    zkpChallenge:   null,
+    zkpHmac:        null,
   })
 
   const [result,     setResult]     = useState(null)
@@ -50,7 +59,7 @@ export default function MarkAttendancePage() {
       setLoadingSessions(false)
       return
     }
-    
+
     const load = async () => {
       try {
         const sessions = isOnline
@@ -78,16 +87,18 @@ export default function MarkAttendancePage() {
     setStepStatuses(prev => ({
       ...prev,
       [currentStep]: prevStepResult ? 'done' : 'failed',
-      ...(nextStep <= 3 ? { [nextStep]: 'active' } : {}),
+      ...(nextStep <= 4 ? { [nextStep]: 'active' } : {}),
     }))
     setCurrentStep(nextStep)
   }, [currentStep])
 
-  const onFaceResult = useCallback(({ verified, faceDescriptor }) => {
+  const onFaceResult = useCallback(({ verified, faceDescriptor, livenessVerified, blinkCount }) => {
     setVerificationData(prev => ({
       ...prev,
       faceVerified:   verified,
       faceDescriptor: faceDescriptor,
+      livenessVerified: livenessVerified || false,
+      blinkCount:     blinkCount || 0,
     }))
     if (!verified) {
       toast.error('Face ID failed. Please try again.')
@@ -109,7 +120,18 @@ export default function MarkAttendancePage() {
     } else {
       toast.success('Location verified!')
     }
-    advanceTo(STEPS.DEVICE, verified)
+    advanceTo(STEPS.BLE, verified)
+  }, [advanceTo])
+
+  const onBLEResult = useCallback(({ beaconUuid, beaconToken, beaconRssi }) => {
+    setVerificationData(prev => ({
+      ...prev,
+      beaconUuid:  beaconUuid,
+      beaconToken: beaconToken,
+      beaconRssi:  beaconRssi,
+    }))
+    toast.success('Beacon verified!')
+    advanceTo(STEPS.DEVICE, true)
   }, [advanceTo])
 
   const onDeviceResult = useCallback(async ({ fingerprint, deviceName }) => {
@@ -117,7 +139,7 @@ export default function MarkAttendancePage() {
       toast.error('Session information missing. Please select a session again.')
       return
     }
-    
+
     setVerificationData(prev => ({
       ...prev,
       deviceFingerprint: fingerprint,
@@ -131,15 +153,26 @@ export default function MarkAttendancePage() {
       const payload = {
         sessionId:         selectedSession.id,
         faceDescriptor:    stored || verificationData.faceDescriptor || [],
+        livenessVerified:  verificationData.livenessVerified,
+        blinkCount:        verificationData.blinkCount,
         userLat:           verificationData.gpsPosition?.lat,
         userLng:           verificationData.gpsPosition?.lng,
         gpsAccuracy:       verificationData.gpsPosition?.accuracy,
+        beaconUuid:        verificationData.beaconUuid,
+        beaconToken:       verificationData.beaconToken,
+        beaconRssi:        verificationData.beaconRssi,
         deviceFingerprint: fingerprint,
         deviceName:        deviceName,
       }
       const res = await attendanceApi.markAttendance(payload, !isOnline)
       if (res.offline) {
-        setResult({ allVerified: true, message: 'Saved offline — will sync when you reconnect.', faceVerified: true, gpsVerified: true, deviceVerified: true, status: 'QUEUED' })
+        setResult({
+          allVerified: true,
+          message: 'Saved offline — will sync when you reconnect.',
+          faceVerified: true, livenessVerified: true,
+          gpsVerified: true, beaconVerified: true,
+          deviceVerified: true, status: 'QUEUED',
+        })
       } else {
         setResult(res)
       }
@@ -149,7 +182,9 @@ export default function MarkAttendancePage() {
       setResult({
         allVerified: false,
         faceVerified: verificationData.faceVerified,
+        livenessVerified: verificationData.livenessVerified,
         gpsVerified: !!verificationData.gpsPosition,
+        beaconVerified: !!verificationData.beaconUuid,
         deviceVerified: true,
         message: msg,
         status: 'ABSENT',
@@ -162,9 +197,16 @@ export default function MarkAttendancePage() {
 
   const handleRetry = () => {
     setCurrentStep(STEPS.FACE)
-    setStepStatuses({ 1: 'active', 2: 'idle', 3: 'idle' })
+    setStepStatuses({ 1: 'active', 2: 'idle', 3: 'idle', 4: 'idle' })
     setResult(null)
-    setVerificationData({ faceDescriptor: null, faceVerified: false, gpsPosition: null, gpsDistance: null, deviceFingerprint: null, deviceName: null })
+    setVerificationData({
+      faceDescriptor: null, faceVerified: false,
+      livenessVerified: false, blinkCount: 0,
+      gpsPosition: null, gpsDistance: null,
+      beaconUuid: null, beaconToken: null, beaconRssi: null,
+      deviceFingerprint: null, deviceName: null,
+      zkpChallenge: null, zkpHmac: null,
+    })
   }
 
   const handleEnrollNow = () => {
@@ -264,6 +306,7 @@ export default function MarkAttendancePage() {
           <FaceStep
             onResult={onFaceResult}
             storedDescriptor={storedDescriptor}
+            session={selectedSession}
           />
         )}
 
@@ -271,6 +314,13 @@ export default function MarkAttendancePage() {
           <GpsStep
             session={selectedSession}
             onResult={onGpsResult}
+          />
+        )}
+
+        {currentStep === STEPS.BLE && (
+          <BLEStep
+            session={selectedSession}
+            onComplete={onBLEResult}
           />
         )}
 

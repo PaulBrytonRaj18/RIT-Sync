@@ -1,23 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, BookOpen, CheckSquare, TrendingUp, ShieldCheck, ChevronRight, UserCheck } from 'lucide-react'
+import { Users, BookOpen, TrendingUp, ShieldCheck, ChevronRight, UserCheck } from 'lucide-react'
 import { usersApi } from '../../api/users'
-import { coursesApi } from '../../api/courses'
+import { adminApi } from '../../api/admin'
 import PageHeader from '../../components/shared/PageHeader'
 import Spinner from '../../components/ui/Spinner'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 
 export default function AdminDashboard() {
   const [users,   setUsers]   = useState({ students: [], teachers: [], admins: [] })
-  const [courses, setCourses] = useState([])
+  const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       usersApi.getByRole('STUDENT'),
       usersApi.getByRole('TEACHER'),
-    ]).then(([students, teachers]) => {
+      adminApi.getDashboard(),
+    ]).then(([students, teachers, dash]) => {
       setUsers({ students, teachers })
+      setDashboard(dash)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -30,10 +32,10 @@ export default function AdminDashboard() {
       <PageHeader title="Admin dashboard" subtitle="Institution-wide overview" />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={Users}      label="Students" value={users.students.length} color="text-blue-500" />
-        <StatCard icon={UserCheck}  label="Teachers" value={users.teachers.length} color="text-green-500" />
-        <StatCard icon={BookOpen}   label="Courses"  value="—"                     color="text-purple-500" />
-        <StatCard icon={TrendingUp} label="Avg attendance" value="—"               color="text-amber-500" />
+        <StatCard icon={Users}      label="Students" value={dashboard?.totalStudents ?? users.students.length} color="text-blue-500" />
+        <StatCard icon={UserCheck}  label="Teachers" value={dashboard?.totalTeachers ?? users.teachers.length} color="text-green-500" />
+        <StatCard icon={BookOpen}   label="Courses"  value={dashboard?.totalCourses ?? '—'}                     color="text-purple-500" />
+        <StatCard icon={TrendingUp} label="Avg attendance" value={dashboard?.avgAttendance != null ? `${dashboard.avgAttendance.toFixed(1)}%` : '—'} color="text-amber-500" />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-5 mb-5">

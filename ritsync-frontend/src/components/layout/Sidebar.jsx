@@ -1,22 +1,30 @@
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, BookOpen, CheckSquare, Users,
-         CalendarCheck, ShieldCheck, LogOut, Smartphone, BarChart2 } from 'lucide-react'
+         CalendarCheck, ShieldCheck, LogOut, Smartphone, BarChart2,
+         AlertTriangle, ClipboardList } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
+import RoleSwitcher from './RoleSwitcher'
 import clsx from 'clsx'
 
 const NAV = {
   STUDENT: [
     { to: '/student',              icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/student/courses',      icon: BookOpen,        label: 'My courses' },
-    { to: '/student/attendance',   icon: CheckSquare,     label: 'My attendance' },
+    { to: '/student/attendance',   icon: CheckSquare,     label: 'Attendance history' },
+    { to: '/student/leave',       icon: CalendarCheck,    label: 'Leave request' },
     { to: '/student/face-enroll', icon: ShieldCheck,      label: 'Face ID setup' },
     { to: '/student/devices',     icon: Smartphone,       label: 'My devices' },
+    { to: '/student/profile',     icon: Users,            label: 'Profile' },
   ],
   TEACHER: [
     { to: '/teacher',              icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/teacher/courses',      icon: BookOpen,        label: 'My courses' },
+    { to: '/teacher/subject',      icon: BookOpen,        label: 'Subject dashboard' },
+    { to: '/teacher/class',        icon: Users,           label: 'Class overview' },
     { to: '/teacher/sessions',     icon: CalendarCheck,    label: 'Sessions' },
-    { to: '/teacher/attendance',   icon: CheckSquare,     label: 'Attendance' },
+    { to: '/teacher/attendance',   icon: CheckSquare,     label: 'Mark attendance' },
+    { to: '/teacher/leave-review', icon: CalendarCheck,   label: 'Leave review' },
+    { to: '/teacher/defaulters',   icon: AlertTriangle,   label: 'Defaulters' },
+    { to: '/teacher/courses',      icon: BookOpen,        label: 'My courses' },
   ],
   ADMIN: [
     { to: '/admin',                icon: LayoutDashboard, label: 'Dashboard' },
@@ -24,11 +32,12 @@ const NAV = {
     { to: '/admin/courses',        icon: BookOpen,         label: 'Courses' },
     { to: '/admin/attendance',     icon: CheckSquare,      label: 'Attendance' },
     { to: '/admin/analytics',      icon: BarChart2,        label: 'Analytics' },
+    { to: '/admin/audit',          icon: ClipboardList,    label: 'Audit log' },
   ],
 }
 
 export default function Sidebar({ onClose }) {
-  const { user, logout, getRole } = useAuthStore()
+  const { user, logout, getRole, teacherRole } = useAuthStore()
   const role = getRole()
   const links = NAV[role] || []
 
@@ -46,16 +55,26 @@ export default function Sidebar({ onClose }) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto p-3 scrollbar-hide">
+        {role === 'TEACHER' && (
+          <div className="sidebar-section">
+            <RoleSwitcher />
+          </div>
+        )}
         <div className="sidebar-section">
           <p className="sidebar-title">Menu</p>
-          {links.map(({ to, icon: Icon, label }) => (
-            <NavLink key={to} to={to} end={to.split('/').length === 2}
-              className={({ isActive }) => clsx('nav-link', isActive && 'active')}
-              onClick={onClose}>
-              <Icon size={17} />
-              {label}
-            </NavLink>
-          ))}
+          {links.map(({ to, icon: Icon, label }) => {
+            if (role === 'TEACHER' && to === '/teacher' && teacherRole === 'class_teacher') return null
+            if (role === 'TEACHER' && to === '/teacher/subject' && teacherRole !== 'subject_teacher') return null
+            if (role === 'TEACHER' && to === '/teacher/class' && teacherRole !== 'class_teacher') return null
+            return (
+              <NavLink key={to} to={to}
+                className={({ isActive }) => clsx('nav-link', isActive && 'active')}
+                onClick={onClose}>
+                <Icon size={17} />
+                {label}
+              </NavLink>
+            )
+          })}
         </div>
         <div className="sidebar-section">
           <p className="sidebar-title">Account</p>
@@ -70,7 +89,11 @@ export default function Sidebar({ onClose }) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
-            <p className="text-xs text-gray-500 truncate">{user?.role}</p>
+            <p className="text-xs text-gray-500 truncate">
+              {user?.role === 'TEACHER' && teacherRole
+                ? (teacherRole === 'subject_teacher' ? 'Subject Teacher' : 'Class Teacher')
+                : user?.role}
+            </p>
           </div>
           <button onClick={logout} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors" title="Sign out">
             <LogOut size={15} className="text-gray-500" />

@@ -1,71 +1,113 @@
 import { useEffect, useState } from 'react'
-import { BarChart2 } from 'lucide-react'
-import { usersApi } from '../../api/users'
+import { BarChart2, TrendingUp, Users, BookOpen } from 'lucide-react'
+import { adminApi } from '../../api/admin'
 import PageHeader from '../../components/shared/PageHeader'
+import Spinner from '../../components/ui/Spinner'
 import EmptyState from '../../components/ui/EmptyState'
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Cell
 } from 'recharts'
 
-const WEEK_DATA = [
-  { day: 'Mon', attendance: 88 },
-  { day: 'Tue', attendance: 82 },
-  { day: 'Wed', attendance: 91 },
-  { day: 'Thu', attendance: 79 },
-  { day: 'Fri', attendance: 85 },
-]
-const DEPT_TREND = [
-  { month: 'Jan', CSE: 88, ECE: 82, MECH: 76 },
-  { month: 'Feb', CSE: 85, ECE: 84, MECH: 79 },
-  { month: 'Mar', CSE: 90, ECE: 87, MECH: 81 },
-  { month: 'Apr', CSE: 88, ECE: 83, MECH: 77 },
-]
-
 export default function AdminAnalyticsPage() {
+  const [dailyData, setDailyData] = useState([])
+  const [deptData, setDeptData] = useState([])
+  const [dashboard, setDashboard] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    Promise.all([
+      adminApi.getDashboard(),
+      adminApi.getDailyAnalytics(),
+      adminApi.getDepartmentTrends(),
+    ]).then(([dash, daily, dept]) => {
+      setDashboard(dash)
+      setDailyData(daily || [])
+      setDeptData(dept || [])
+    }).catch(e => {
+      setError('Failed to load analytics data')
+    }).finally(() => setLoading(false))
+  }, [])
+
+  if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>
+  if (error) return (
+    <div className="animate-fade-in">
+      <PageHeader title="Analytics" subtitle="Department-wide attendance trends and insights" />
+      <div className="card text-center py-16 text-gray-500">{error}</div>
+    </div>
+  )
+
   return (
     <div className="animate-fade-in">
       <PageHeader title="Analytics" subtitle="Department-wide attendance trends and insights" />
 
+      {dashboard && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="stat-card">
+            <Users size={18} className="text-blue-500" />
+            <p className="stat-value">{dashboard.totalStudents}</p>
+            <p className="stat-label">Students</p>
+          </div>
+          <div className="stat-card">
+            <BookOpen size={18} className="text-primary-500" />
+            <p className="stat-value">{dashboard.totalCourses}</p>
+            <p className="stat-label">Courses</p>
+          </div>
+          <div className="stat-card">
+            <TrendingUp size={18} className="text-green-500" />
+            <p className="stat-value">{dashboard.avgAttendance?.toFixed(1) || '0'}%</p>
+            <p className="stat-label">Avg attendance</p>
+          </div>
+          <div className="stat-card">
+            <Users size={18} className="text-purple-500" />
+            <p className="stat-value">{dashboard.totalTeachers}</p>
+            <p className="stat-label">Teachers</p>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-5">
+        {/* Weekly attendance */}
         <div className="card">
           <h2 className="font-semibold text-gray-900 mb-1">Weekly attendance rate</h2>
           <p className="text-xs text-gray-500 mb-4">Institution average this week</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={WEEK_DATA}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 12 }} />
-              <YAxis domain={[60, 100]} tick={{ fontSize: 12 }} unit="%" />
-              <Tooltip formatter={v => [v + '%', 'Attendance']} />
-              <Bar dataKey="attendance" radius={[4,4,0,0]}>
-                {WEEK_DATA.map((d, i) => <Cell key={i} fill={d.attendance >= 85 ? '#22c55e' : d.attendance >= 75 ? '#f59e0b' : '#ef4444'} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {dailyData.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-10">No attendance data this week</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={dailyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} unit="%" />
+                <Tooltip formatter={v => [v + '%', 'Attendance']} />
+                <Bar dataKey="attendance" radius={[4,4,0,0]}>
+                  {dailyData.map((d, i) => <Cell key={i} fill={d.attendance >= 85 ? '#22c55e' : d.attendance >= 75 ? '#f59e0b' : '#ef4444'} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
+        {/* Department trends */}
         <div className="card">
-          <h2 className="font-semibold text-gray-900 mb-1">Department trends</h2>
-          <p className="text-xs text-gray-500 mb-4">Monthly comparison by department</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={DEPT_TREND}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-              <YAxis domain={[60, 100]} tick={{ fontSize: 12 }} unit="%" />
-              <Tooltip formatter={v => [v + '%']} />
-              <Legend />
-              <Line type="monotone" dataKey="CSE"  stroke="#6366f1" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="ECE"  stroke="#22c55e" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="MECH" stroke="#f59e0b" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="card p-4 bg-amber-50 border border-amber-100">
-          <p className="text-sm font-medium text-amber-800 mb-1">Note — sample data</p>
-          <p className="text-xs text-amber-700">
-            These charts display illustrative data. Live analytics will populate as sessions and attendance records are created through the system.
-          </p>
+          <h2 className="font-semibold text-gray-900 mb-1">Department attendance</h2>
+          <p className="text-xs text-gray-500 mb-4">Current attendance rate by department</p>
+          {deptData.length === 0 ? (
+            <p className="text-center text-sm text-gray-400 py-10">No department data available</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={deptData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="department" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} unit="%" />
+                <Tooltip formatter={v => [v + '%', 'Attendance']} />
+                <Bar dataKey="attendance" radius={[4,4,0,0]}>
+                  {deptData.map((d, i) => <Cell key={i} fill={d.attendance >= 85 ? '#22c55e' : d.attendance >= 75 ? '#f59e0b' : '#ef4444'} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>

@@ -34,4 +34,21 @@ export const usersApi = {
       return null
     }
   },
+
+  // ZKP endpoints
+  getFaceChallenge: async () => {
+    const res = await apiClient.get('/users/me/face/challenge')
+    return res.data
+  },
+
+  completeZKPVerification: async (data) => {
+    const res = await apiClient.post('/users/me/face/verify-zkp', data)
+    return res.data
+  },
+
+  // ZKP face enrollment
+  enrollFaceZKP: async (data) => {
+    const res = await apiClient.post('/users/me/face', data)
+    return res.data
+  },
 }

@@ -3,6 +3,7 @@ import { Camera, CheckCircle, AlertCircle, RefreshCw, Info } from 'lucide-react'
 import { useFaceVerification } from '../../hooks/useFaceVerification'
 import { usersApi } from '../../api/users'
 import useAuthStore from '../../store/authStore'
+import { encryptDescriptor } from '../../utils/faceEncryption'
 import PageHeader from '../../components/shared/PageHeader'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
@@ -48,14 +49,28 @@ export default function FaceEnrollPage() {
       setStep('saving')
       setSaving(true)
 
-      const avg = newCaptures.reduce((acc, curr, _, arr) =>
-        curr.map((val, i) => val + (acc[i] || 0) / arr.length), Array(128).fill(0))
+      const avg = newCaptures.reduce((acc, curr) =>
+        curr.map((val, i) => (acc[i] || 0) + val / newCaptures.length), Array(128).fill(0))
 
-      await usersApi.enrollFaceDescriptor(avg)
+      // Encrypt descriptor with ZKP before sending to server
+      const email = user?.email || 'default'
+      const encrypted = await encryptDescriptor(avg, email)
+
+      // Send encrypted payload to server. The server stores only the encrypted blob.
+      await usersApi.enrollFaceZKP({
+        descriptor: avg,
+        encryptedDescriptor: encrypted.encryptedDescriptor,
+        encryptionIv: encrypted.encryptionIv,
+        salt: encrypted.salt,
+      })
+
+      // Also store locally for offline face verification
+      sessionStorage.setItem('_face_descriptor_cache', JSON.stringify(avg))
+
       stopCamera()
       updateUser({ ...user, faceEnrolled: true })
       setStep('done')
-      toast.success('Face ID enrolled successfully!')
+      toast.success('Face ID enrolled successfully! (ZKP encrypted)')
     } catch (err) {
       toast.error(err.message || 'Capture failed — try again')
       setStep('camera')

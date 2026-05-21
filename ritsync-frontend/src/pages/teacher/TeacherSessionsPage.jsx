@@ -23,7 +23,8 @@ export default function TeacherSessionsPage() {
   const [showNew,  setShowNew]  = useState(false)
   const [form,     setForm]     = useState({
     courseId: '', title: '', startTime: '', endTime: '',
-    geofenceLat: '', geofenceLng: '', geofenceRadiusM: '100'
+    geofenceLat: '', geofenceLng: '', geofenceRadiusM: '100',
+    isMakeup: false
   })
   const [creating, setCreating] = useState(false)
 
@@ -138,6 +139,12 @@ export default function TeacherSessionsPage() {
             <Input label="Longitude *" type="number" step="any" placeholder="77.5946" value={form.geofenceLng} onChange={set('geofenceLng')} />
           </div>
           <Input label="Geofence radius (metres)" type="number" value={form.geofenceRadiusM} onChange={set('geofenceRadiusM')} />
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" checked={form.isMakeup}
+              onChange={e => setForm(p => ({ ...p, isMakeup: e.target.checked }))}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+            Makeup session (scheduled after cancellation)
+          </label>
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" className="flex-1" onClick={() => setShowNew(false)}>Cancel</Button>
             <Button variant="primary"   className="flex-1" onClick={handleCreate} loading={creating}>Create session</Button>

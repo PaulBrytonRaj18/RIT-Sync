@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { BookOpen, Users, CalendarCheck, BarChart2, ChevronRight, Plus } from 'lucide-react'
+import { Link, Navigate } from 'react-router-dom'
+import { BookOpen, Users, CalendarCheck, BarChart2, ChevronRight, Plus, AlertTriangle } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
+import RoleSwitcher from '../../components/layout/RoleSwitcher'
 import { coursesApi } from '../../api/courses'
+import { teacherApi } from '../../api/teacher'
 import { sessionsApi } from '../../api/sessions'
 import PageHeader from '../../components/shared/PageHeader'
 import Button from '../../components/ui/Button'
@@ -12,17 +14,25 @@ import { fmt } from '../../utils/format'
 
 export default function TeacherDashboard() {
   const user = useAuthStore(s => s.user)
+  const teacherRole = useAuthStore(s => s.teacherRole)
   const [courses,      setCourses]      = useState([])
   const [openSessions, setOpenSessions] = useState([])
+  const [classData,    setClassData]    = useState(null)
   const [loading,      setLoading]      = useState(true)
+
+  // Auto-redirect based on role
+  if (teacherRole === 'subject_teacher') return <Navigate to="/teacher/subject" replace />
+  if (teacherRole === 'class_teacher') return <Navigate to="/teacher/class" replace />
 
   useEffect(() => {
     Promise.all([
       coursesApi.getMyCourses(),
       sessionsApi.getOpenSessions(),
-    ]).then(([c, s]) => {
+      teacherApi.getClassDashboard().catch(() => null),
+    ]).then(([c, s, cd]) => {
       setCourses(c)
       setOpenSessions(s.filter(s => s.course?.instructor?.id === user.id))
+      setClassData(cd)
     }).finally(() => setLoading(false))
   }, [user.id])
 
@@ -42,6 +52,8 @@ export default function TeacherDashboard() {
         }
       />
 
+      <RoleSwitcher />
+
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="stat-card"><BookOpen size={18} className="text-primary-500" />
@@ -50,8 +62,13 @@ export default function TeacherDashboard() {
           <p className="stat-value">{totalStudents}</p><p className="stat-label">Students</p></div>
         <div className="stat-card"><CalendarCheck size={18} className="text-green-500" />
           <p className="stat-value">{openSessions.length}</p><p className="stat-label">Live sessions</p></div>
-        <div className="stat-card"><BarChart2 size={18} className="text-amber-500" />
-          <p className="stat-value">—</p><p className="stat-label">Avg attendance</p></div>
+        <div className="stat-card">
+          <Link to="/teacher/class" className="block">
+            <BarChart2 size={18} className="text-amber-500" />
+            <p className="stat-value">{classData ? classData.overallAttendancePct.toFixed(0) + '%' : '—'}</p>
+            <p className="stat-label">Class attendance</p>
+          </Link>
+        </div>
       </div>
 
       {/* Live sessions */}
@@ -88,14 +105,14 @@ export default function TeacherDashboard() {
         ) : (
           <div className="divide-y divide-gray-50">
             {courses.slice(0, 5).map(course => (
-              <Link key={course.id} to={`/teacher/courses/${course.id}`}
+              <Link key={course.id} to={`/teacher/subject-attendance/${course.id}`}
                 className="flex items-center gap-3 py-3.5 hover:bg-gray-50 -mx-5 px-5 transition-colors">
                 <div className="w-9 h-9 rounded-xl bg-primary-100 flex items-center justify-center shrink-0">
                   <span className="text-xs font-bold text-primary-700">{course.code.slice(0,3)}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{course.name}</p>
-                  <p className="text-xs text-gray-500">{course.code} · {course.department}</p>
+                  <p className="text-xs text-gray-500">{course.code} · {course.department} · {course.enrolledCount} students</p>
                 </div>
                 <ChevronRight size={14} className="text-gray-300" />
               </Link>

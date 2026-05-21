@@ -2,9 +2,10 @@ import { Check, Loader } from 'lucide-react'
 import clsx from 'clsx'
 
 const STEPS = [
-  { id: 1, label: 'Face ID',  sub: 'Camera verification' },
-  { id: 2, label: 'Location', sub: 'GPS geofence check'  },
-  { id: 3, label: 'Device',   sub: 'Registered device'   },
+  { id: 1, label: 'Face ID',  sub: 'Camera + liveness'    },
+  { id: 2, label: 'Location', sub: 'GPS geofence check'   },
+  { id: 3, label: 'Beacon',   sub: 'BLE proximity check'  },
+  { id: 4, label: 'Device',   sub: 'Registered device'    },
 ]
 
 export default function VerificationStepper({ currentStep, stepStatuses }) {
