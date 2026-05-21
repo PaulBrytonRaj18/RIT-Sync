@@ -151,6 +151,29 @@ CREATE TABLE IF NOT EXISTS notifications (
     INDEX idx_notif_unread (user_id, is_read)
 ) ENGINE=InnoDB;
 
+-- Leave requests for student leave management
+CREATE TABLE IF NOT EXISTS leave_requests (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    student_id      BIGINT          NOT NULL,
+    course_id       BIGINT,
+    leave_type      ENUM('MEDICAL','PERSONAL','EMERGENCY','OTHER') NOT NULL,
+    reason          TEXT            NOT NULL,
+    from_date       DATE            NOT NULL,
+    to_date         DATE            NOT NULL,
+    attachment_url  VARCHAR(500),
+    status          ENUM('PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'PENDING',
+    reviewed_by     BIGINT,
+    review_notes    TEXT,
+    created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id)  REFERENCES courses(id) ON DELETE SET NULL,
+    FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_leave_student (student_id),
+    INDEX idx_leave_course  (course_id),
+    INDEX idx_leave_status  (status)
+) ENGINE=InnoDB;
+
 -- NOTE: Do not seed default users in production
 -- First admin should be created via registration or manually with a proper bcrypt hash
 -- Example bcrypt hash for password 'Admin@123' (do not use in production):

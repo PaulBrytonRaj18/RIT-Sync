@@ -16,6 +16,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRoleAndIsActiveTrue(Role role);
     List<User> findByDepartmentAndRole(String department, Role role);
 
+    long countByRoleAndIsActiveTrue(Role role);
+
     @Query("SELECT u FROM User u WHERE u.role = :role AND u.department = :dept AND u.isActive = true")
     List<User> findActiveByRoleAndDepartment(Role role, String dept);
 
@@ -24,4 +26,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT fd.user.id FROM FaceDescriptor fd WHERE fd.user.id IN :userIds")
     List<Long> findUserIdsWithFaceDescriptor(List<Long> userIds);
+
+    @Query("SELECT DISTINCT u.department FROM User u WHERE u.department IS NOT NULL")
+    List<String> findDistinctDepartments();
+
+    @Query("SELECT COUNT(u) FROM User u WHERE u.department = :dept AND u.role = :role AND u.isActive = true")
+    long countByDepartmentAndRoleAndIsActiveTrue(String dept, Role role);
 }

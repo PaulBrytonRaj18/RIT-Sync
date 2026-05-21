@@ -8,6 +8,8 @@ public record MarkAttendanceResponse(
     boolean          faceVerified,
     boolean          gpsVerified,
     boolean          deviceVerified,
+    boolean          livenessVerified,
+    boolean          beaconVerified,
     boolean          allVerified,
     String           message,
     double           faceDistance,

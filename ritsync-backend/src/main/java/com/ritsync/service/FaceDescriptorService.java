@@ -58,7 +58,8 @@ public class FaceDescriptorService {
     }
 
     @Transactional
-    public void enroll(Long userId, List<Double> descriptor) {
+    public void enroll(Long userId, List<Double> descriptor,
+                       String encryptedDescriptor, String encryptionIv, String salt) {
         if (descriptor == null || descriptor.size() != 128) {
             throw RitSyncException.badRequest(
                 "Face descriptor must be a 128-element float array from face-api.js.");
@@ -78,8 +79,11 @@ public class FaceDescriptorService {
             .orElseGet(() -> FaceDescriptor.builder().user(user).build());
 
         entity.setDescriptor(encrypted);
+        entity.setEncryptedDescriptor(encryptedDescriptor);
+        entity.setEncryptionIv(encryptionIv);
+        entity.setSalt(salt);
         faceDescriptorRepository.save(entity);
-        log.info("Face descriptor enrolled/updated for user {}", userId);
+        log.info("Face descriptor enrolled/updated for user {} with ZKP fields", userId);
     }
 
     public boolean isEnrolled(Long userId) {

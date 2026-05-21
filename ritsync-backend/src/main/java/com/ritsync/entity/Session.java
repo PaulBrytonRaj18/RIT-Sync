@@ -44,6 +44,22 @@ public class Session {
     @Builder.Default
     private Boolean isOpen = false;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean enableLiveness = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean enableBle = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean enableZkp = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean isMakeup = false;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

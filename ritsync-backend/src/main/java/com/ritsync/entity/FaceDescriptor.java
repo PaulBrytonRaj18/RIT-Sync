@@ -20,7 +20,16 @@ public class FaceDescriptor {
     private User user;
 
     @Column(nullable = false, columnDefinition = "LONGTEXT")
-    private String descriptor;  // JSON array of 128 floats from Face-api.js
+    private String descriptor;
+
+    @Column(columnDefinition = "TEXT")
+    private String encryptedDescriptor;
+
+    @Column(columnDefinition = "VARCHAR(255)")
+    private String encryptionIv;
+
+    @Column(columnDefinition = "VARCHAR(255)")
+    private String salt;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

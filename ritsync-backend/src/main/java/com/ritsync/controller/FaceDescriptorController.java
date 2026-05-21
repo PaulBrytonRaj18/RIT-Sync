@@ -29,7 +29,13 @@ public class FaceDescriptorController {
         if (descriptor == null) {
             return ApiResponse.error("Missing 'descriptor' field");
         }
-        faceDescriptorService.enroll(principal.getId(), descriptor);
+
+        String encryptedDescriptor = (String) body.get("encryptedDescriptor");
+        String encryptionIv = (String) body.get("encryptionIv");
+        String salt = (String) body.get("salt");
+
+        faceDescriptorService.enroll(principal.getId(), descriptor,
+            encryptedDescriptor, encryptionIv, salt);
         return ApiResponse.ok("Face ID enrolled successfully", null);
     }
 

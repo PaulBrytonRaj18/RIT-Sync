@@ -18,6 +18,10 @@ public record SessionResponse(
     BigDecimal    geofenceLng,
     int           geofenceRadiusM,
     boolean       isOpen,
+    boolean       enableLiveness,
+    boolean       enableBle,
+    boolean       enableZkp,
+    boolean       isMakeup,
     LocalDateTime createdAt
 ) {
     public static SessionResponse from(Session s) {
@@ -35,6 +39,10 @@ public record SessionResponse(
             s.getGeofenceLng(),
             s.getGeofenceRadiusM(),
             Boolean.TRUE.equals(s.getIsOpen()),
+            Boolean.TRUE.equals(s.getEnableLiveness()),
+            Boolean.TRUE.equals(s.getEnableBle()),
+            Boolean.TRUE.equals(s.getEnableZkp()),
+            Boolean.TRUE.equals(s.getIsMakeup()),
             s.getCreatedAt()
         );
     }

@@ -11,5 +11,9 @@ public record CreateSessionRequest(
     @NotNull LocalDateTime endTime,
     @NotNull BigDecimal    geofenceLat,
     @NotNull BigDecimal    geofenceLng,
-             Integer       geofenceRadiusM
+             Integer       geofenceRadiusM,
+             Boolean       enableLiveness,
+             Boolean       enableBle,
+             Boolean       enableZkp,
+             Boolean       isMakeup
 ) {}

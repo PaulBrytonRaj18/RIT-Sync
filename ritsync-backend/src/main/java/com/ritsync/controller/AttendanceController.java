@@ -36,6 +36,13 @@ public class AttendanceController {
         return ApiResponse.ok(message, result);
     }
 
+    @GetMapping("/my")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ApiResponse<List<AttendanceRecordResponse>> getMyRecords(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.ok(attendanceService.getMyRecords(principal.getId()));
+    }
+
     @GetMapping("/session/{sessionId}")
     @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
     public ApiResponse<List<AttendanceRecordResponse>> getSessionAttendance(

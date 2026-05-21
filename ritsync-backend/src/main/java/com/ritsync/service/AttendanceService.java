@@ -27,14 +27,16 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AttendanceService {
 
-    private final AttendanceRecordRepository  attendanceRepo;
-    private final SessionRepository          sessionRepo;
-    private final UserService               userService;
-    private final FaceVerificationService    faceService;
-    private final GeofenceService           geoService;
-    private final DeviceVerificationService  deviceService;
-    private final AuditService              auditService;
-    private final NotificationService       notificationService;
+    private final AttendanceRecordRepository     attendanceRepo;
+    private final SessionRepository             sessionRepo;
+    private final UserService                  userService;
+    private final FaceVerificationService       faceService;
+    private final GeofenceService              geoService;
+    private final DeviceVerificationService     deviceService;
+    private final LivenessVerificationService   livenessService;
+    private final BeaconVerificationService     beaconService;
+    private final AuditService                 auditService;
+    private final NotificationService          notificationService;
 
     @Transactional
     public MarkAttendanceResponse markAttendance(Long studentId, MarkAttendanceRequest req) {
@@ -77,6 +79,11 @@ public class AttendanceService {
         log.info("[FACE]   student={} distance={:.4f} verified={}",
                  studentId, faceResult.distance(), faceResult.verified());
 
+        // Liveness verification (client-side result, server validates if provided)
+        boolean livenessVerified = Boolean.TRUE.equals(req.livenessVerified());
+        int blinkCount = req.blinkCount() != null ? req.blinkCount() : 0;
+        log.info("[LIVENESS] student={} verified={} blinks={}", studentId, livenessVerified, blinkCount);
+
         double gpsDistance = geoService.distanceMetres(
             req.userLat(), req.userLng(),
             session.getGeofenceLat().doubleValue(),
@@ -86,13 +93,25 @@ public class AttendanceService {
         log.info("[GPS]    student={} distance={:.1f}m radius={}m verified={}",
                  studentId, gpsDistance, session.getGeofenceRadiusM(), gpsVerified);
 
+        // BLE beacon verification
+        boolean beaconVerified = false;
+        if (req.beaconUuid() != null && req.beaconToken() != null) {
+            beaconVerified = beaconService.validateBeacon(
+                req.beaconUuid(), req.beaconToken(), req.beaconRssi()
+            );
+        } else {
+            beaconVerified = true; // BLE not required, skip check
+        }
+        log.info("[BEACON] student={} verified={}", studentId, beaconVerified);
+
         DeviceVerificationService.DeviceResult deviceResult = deviceService.verifyAndBind(
             student, req.deviceFingerprint(), req.deviceName()
         );
         log.info("[DEVICE] student={} fingerprint={} trusted={}",
                  studentId, req.deviceFingerprint(), deviceResult.verified());
 
-        boolean allVerified = faceResult.verified() && gpsVerified && deviceResult.verified();
+        boolean allVerified = faceResult.verified() && gpsVerified && deviceResult.verified()
+                            && livenessVerified && beaconVerified;
         AttendanceStatus status = allVerified ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT;
 
         AttendanceRecord record = existing.orElseGet(() ->
@@ -103,30 +122,43 @@ public class AttendanceService {
         );
         record.setStatus(status);
         record.setFaceVerified(faceResult.verified());
+        record.setLivenessVerified(livenessVerified);
+        record.setBlinkCount(blinkCount);
         record.setGpsVerified(gpsVerified);
+        record.setGpsAccuracy(req.gpsAccuracy());
+        record.setBeaconVerified(beaconVerified);
+        record.setBeaconUuid(req.beaconUuid());
+        record.setBeaconToken(req.beaconToken());
+        record.setBeaconRssi(req.beaconRssi());
         record.setDeviceVerified(deviceResult.verified());
+        record.setUserLat(req.userLat());
+        record.setUserLng(req.userLng());
         record.setMarkedAt(LocalDateTime.now());
         attendanceRepo.save(record);
 
         auditService.log(studentId, student.getEmail(), "ATTENDANCE_MARKED",
             "attendance_records", record.getId(),
             Map.of(
-                "sessionId",    req.sessionId(),
-                "status",       status.name(),
-                "faceOk",       faceResult.verified(),
-                "gpsOk",        gpsVerified,
-                "deviceOk",     deviceResult.verified(),
-                "faceDistance",  faceResult.distance(),
-                "gpsDistance",   gpsDistance
+                "sessionId",         req.sessionId(),
+                "status",            status.name(),
+                "faceOk",            faceResult.verified(),
+                "livenessOk",        livenessVerified,
+                "gpsOk",             gpsVerified,
+                "beaconOk",          beaconVerified,
+                "deviceOk",          deviceResult.verified(),
+                "faceDistance",       faceResult.distance(),
+                "gpsDistance",        gpsDistance,
+                "blinkCount",        blinkCount
             ), null);
 
         notificationService.checkAndNotifyThreshold(studentId, session.getCourse().getId());
 
-        String message = buildMessage(faceResult.verified(), gpsVerified, deviceResult.verified(), allVerified, session);
+        String message = buildMessage(faceResult.verified(), livenessVerified, gpsVerified, beaconVerified, deviceResult.verified(), allVerified, session);
 
         return new MarkAttendanceResponse(
             record.getId(), status,
             faceResult.verified(), gpsVerified, deviceResult.verified(),
+            livenessVerified, beaconVerified,
             allVerified, message,
             faceResult.distance(), gpsDistance
         );
@@ -135,6 +167,12 @@ public class AttendanceService {
     @Transactional(readOnly = true)
     public List<AttendanceRecordResponse> getSessionAttendance(Long sessionId) {
         return attendanceRepo.findBySessionId(sessionId)
+            .stream().map(AttendanceRecordResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AttendanceRecordResponse> getMyRecords(Long studentId) {
+        return attendanceRepo.findByStudentId(studentId)
             .stream().map(AttendanceRecordResponse::from).toList();
     }
 
@@ -173,13 +211,15 @@ public class AttendanceService {
         return AttendanceRecordResponse.from(record);
     }
 
-    private String buildMessage(boolean face, boolean gps, boolean device, boolean all, Session session) {
-        if (all) return "Attendance marked successfully. All three verifications passed.";
+    private String buildMessage(boolean face, boolean liveness, boolean gps, boolean beacon, boolean device, boolean all, Session session) {
+        if (all) return "Attendance marked successfully. All verifications passed.";
         StringBuilder sb = new StringBuilder("Attendance could not be marked. ");
         
-        if (!face)   sb.append("Face ID verification failed - ensure you are looking directly at the camera. ");
-        if (!gps)    sb.append(String.format("GPS location outside the %dm classroom radius. ", session.getGeofenceRadiusM()));
-        if (!device) sb.append("This device is not registered for attendance. Please use a registered device. ");
+        if (!face)    sb.append("Face ID verification failed - ensure you are looking directly at the camera. ");
+        if (!liveness)sb.append("Liveness check failed - please blink naturally during verification. ");
+        if (!gps)     sb.append(String.format("GPS location outside the %dm classroom radius. ", session.getGeofenceRadiusM()));
+        if (!beacon)  sb.append("Bluetooth beacon verification failed - ensure you are in the classroom. ");
+        if (!device)  sb.append("This device is not registered for attendance. Please use a registered device. ");
         
         sb.append("Contact your teacher if you believe this is an error.");
         return sb.toString().trim();

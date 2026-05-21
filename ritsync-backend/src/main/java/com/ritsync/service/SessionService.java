@@ -48,6 +48,10 @@ public class SessionService {
             .geofenceLng(req.geofenceLng())
             .geofenceRadiusM(req.geofenceRadiusM() != null ? req.geofenceRadiusM() : 100)
             .isOpen(false)
+            .enableLiveness(Boolean.TRUE.equals(req.enableLiveness()))
+            .enableBle(Boolean.TRUE.equals(req.enableBle()))
+            .enableZkp(Boolean.TRUE.equals(req.enableZkp()))
+            .isMakeup(Boolean.TRUE.equals(req.isMakeup()))
             .build();
 
         session = sessionRepo.save(session);

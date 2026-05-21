@@ -30,9 +30,19 @@ public class AttendanceRecord {
     @Builder.Default
     private AttendanceStatus status = AttendanceStatus.ABSENT;
 
-    @Column(nullable = false) @Builder.Default private Boolean faceVerified   = false;
-    @Column(nullable = false) @Builder.Default private Boolean gpsVerified    = false;
-    @Column(nullable = false) @Builder.Default private Boolean deviceVerified = false;
+    @Column(nullable = false) @Builder.Default private Boolean faceVerified       = false;
+    @Column(nullable = false) @Builder.Default private Boolean gpsVerified        = false;
+    @Column(nullable = false) @Builder.Default private Boolean deviceVerified     = false;
+    @Column(nullable = false) @Builder.Default private Boolean livenessVerified   = false;
+    @Column(nullable = false) @Builder.Default private Boolean beaconVerified     = false;
+
+    @Builder.Default private Integer blinkCount = 0;
+
+    private Double gpsAccuracy;
+
+    private String beaconUuid;
+    private String beaconToken;
+    private Integer beaconRssi;
 
     @Column(nullable = false) @Builder.Default private Boolean manuallyOverridden = false;
 
@@ -44,6 +54,9 @@ public class AttendanceRecord {
     private User overriddenBy;
 
     private LocalDateTime markedAt;
+
+    private Double userLat;
+    private Double userLng;
 
     @CreationTimestamp @Column(nullable = false, updatable = false) private LocalDateTime createdAt;
     @UpdateTimestamp   @Column(nullable = false)                    private LocalDateTime updatedAt;
