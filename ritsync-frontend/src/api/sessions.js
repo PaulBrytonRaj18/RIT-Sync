@@ -24,6 +24,11 @@ export const sessionsApi = {
     return res.data.data
   },
 
+  getById: async (sessionId) => {
+    const res = await apiClient.get(`/sessions/${sessionId}`)
+    return res.data.data
+  },
+
   getOpenSessions: async () => {
     const res = await apiClient.get('/sessions/open')
     return res.data.data

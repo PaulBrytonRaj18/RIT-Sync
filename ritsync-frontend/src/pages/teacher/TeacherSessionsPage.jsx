@@ -102,7 +102,7 @@ export default function TeacherSessionsPage() {
             <div key={s.id} className="card flex items-center gap-4">
               <Link to={`/teacher/attendance/${s.id}`} className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-sm font-medium text-gray-900 truncate">{s.course?.name || '—'}</p>
+                  <p className="text-sm font-medium text-gray-900 truncate">{s.courseName || '—'}</p>
                   {s.isOpen && <Badge variant="green">Live</Badge>}
                 </div>
                 <p className="text-xs text-gray-500">

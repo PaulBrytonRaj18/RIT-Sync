@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { BookOpen, Users, CalendarCheck, BarChart2, ChevronRight, Plus, AlertTriangle } from 'lucide-react'
+import { BookOpen, Users, CalendarCheck, BarChart2, ChevronRight, Plus } from 'lucide-react'
 import useAuthStore from '../../store/authStore'
 import RoleSwitcher from '../../components/layout/RoleSwitcher'
 import { coursesApi } from '../../api/courses'
@@ -20,22 +20,26 @@ export default function TeacherDashboard() {
   const [classData,    setClassData]    = useState(null)
   const [loading,      setLoading]      = useState(true)
 
-  // Auto-redirect based on role
-  if (teacherRole === 'subject_teacher') return <Navigate to="/teacher/subject" replace />
-  if (teacherRole === 'class_teacher') return <Navigate to="/teacher/class" replace />
+  const redirect = teacherRole === 'subject_teacher' ? '/teacher/subject'
+                 : teacherRole === 'class_teacher'   ? '/teacher/class'
+                 : null
 
   useEffect(() => {
+    if (redirect) return
     Promise.all([
       coursesApi.getMyCourses(),
       sessionsApi.getOpenSessions(),
       teacherApi.getClassDashboard().catch(() => null),
     ]).then(([c, s, cd]) => {
       setCourses(c)
-      setOpenSessions(s.filter(s => s.course?.instructor?.id === user.id))
+      // The API already returns only this teacher's open sessions (all of them for admins)
+      setOpenSessions(s)
       setClassData(cd)
     }).finally(() => setLoading(false))
-  }, [user.id])
+  }, [redirect])
 
+  // Hooks must run unconditionally; redirect only after them (rules of hooks)
+  if (redirect) return <Navigate to={redirect} replace />
   if (loading) return <div className="flex justify-center py-20"><Spinner size="lg" /></div>
 
   const totalStudents = courses.reduce((s, c) => s + (c.enrolledCount || 0), 0)
@@ -83,7 +87,7 @@ export default function TeacherDashboard() {
               <Link key={s.id} to={`/teacher/sessions/${s.id}`}
                 className="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-xl hover:bg-green-100 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{s.course?.name}</p>
+                  <p className="text-sm font-medium text-gray-900">{s.courseName}</p>
                   <p className="text-xs text-gray-500">{s.title || 'Session'} · Started {fmt.relative(s.createdAt)}</p>
                 </div>
                 <Badge variant="green">Live</Badge>
