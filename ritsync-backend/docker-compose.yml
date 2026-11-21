@@ -1,19 +1,17 @@
-version: '3.8'
-
+# All credentials come from ./.env (copy .env.example). Nothing secret is stored here.
 services:
   mysql:
     image: mysql:8.0
     container_name: ritsync-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
       MYSQL_DATABASE: ritsync_db
-      MYSQL_USER: ritsync_user
-      MYSQL_PASSWORD: ritsync_pass
+      MYSQL_USER: ${DB_USERNAME:?set DB_USERNAME in .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -24,7 +22,7 @@ services:
     image: redis:7-alpine
     container_name: ritsync-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
@@ -34,14 +32,10 @@ services:
     container_name: ritsync-app
     ports:
       - "8080:8080"
+    env_file: .env
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ritsync_db?useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      SPRING_REDIS_HOST: redis
-      SPRING_REDIS_PORT: 6379
-      JWT_SECRET: ${JWT_SECRET}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      DB_URL: jdbc:mysql://mysql:3306/ritsync_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      REDIS_HOST: redis
     depends_on:
       mysql:
         condition: service_healthy

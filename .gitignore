@@ -4,7 +4,6 @@
 target/
 !.mvn/wrapper/maven-wrapper.jar
 .mvn/timing.properties
-.mvn/wrapper/maven-wrapper.properties
 *.jar
 *.war
 *.nar
@@ -51,8 +50,8 @@ ritsync-frontend/dist/
 ritsync-frontend/.vite/
 ritsync-frontend/.env
 ritsync-frontend/.env.local
-ritsync-frontend/.env.*.
-node_modules/local
+ritsync-frontend/.env.*
+!ritsync-frontend/.env.example
 ritsync-frontend/.cache/
 ritsync-frontend/.eslintcache
 ritsync-frontend/.parcel-cache/
@@ -72,7 +71,12 @@ ritsync-frontend/.angular/tsconfig.spec.json
 ritsync-backend/.env
 ritsync-backend/.env.local
 ritsync-backend/.env.prod
-ritsync-backend/.env.*.local
+ritsync-backend/.env.*
+!ritsync-backend/.env.example
+
+# Any stray env files anywhere
+.env
+.env.local
 
 # ============================================================================
 # Database & Container Data

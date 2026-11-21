@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -19,6 +20,8 @@ public class JwtTokenProvider {
     private final long refreshExpiry;
 
     private static final int MIN_SECRET_LENGTH = 32;
+    static final String TYPE_ACCESS  = "access";
+    static final String TYPE_REFRESH = "refresh";
 
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
@@ -43,11 +46,11 @@ public class JwtTokenProvider {
     }
 
     public String generateAccessToken(UserPrincipal principal) {
-        return buildToken(principal, accessExpiry, "access");
+        return buildToken(principal, accessExpiry, TYPE_ACCESS);
     }
 
     public String generateRefreshToken(UserPrincipal principal) {
-        return buildToken(principal, refreshExpiry, "refresh");
+        return buildToken(principal, refreshExpiry, TYPE_REFRESH);
     }
 
     private String buildToken(UserPrincipal p, long expiryMs, String type) {
@@ -73,13 +76,27 @@ public class JwtTokenProvider {
         return parseToken(token).getSubject();
     }
 
-    public boolean validateToken(String token) {
+    /** Returns the subject (email) if this is a valid, unexpired ACCESS token; otherwise empty. */
+    public Optional<String> validateAccessToken(String token) {
+        return validateTyped(token, TYPE_ACCESS);
+    }
+
+    /** Returns the subject (email) if this is a valid, unexpired REFRESH token; otherwise empty. */
+    public Optional<String> validateRefreshToken(String token) {
+        return validateTyped(token, TYPE_REFRESH);
+    }
+
+    private Optional<String> validateTyped(String token, String expectedType) {
         try {
-            parseToken(token);
-            return true;
+            Claims claims = parseToken(token);
+            if (!expectedType.equals(claims.get("type", String.class))) {
+                log.debug("Rejected JWT: expected type '{}'", expectedType);
+                return Optional.empty();
+            }
+            return Optional.ofNullable(claims.getSubject());
         } catch (JwtException | IllegalArgumentException e) {
-            log.warn("Invalid JWT: {}", e.getMessage());
-            return false;
+            log.debug("Invalid JWT: {}", e.getMessage());
+            return Optional.empty();
         }
     }
 }

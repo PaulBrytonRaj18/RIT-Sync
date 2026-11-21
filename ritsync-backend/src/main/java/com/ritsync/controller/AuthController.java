@@ -1,6 +1,7 @@
 package com.ritsync.controller;
 
 import com.ritsync.dto.request.LoginRequest;
+import com.ritsync.dto.request.RefreshTokenRequest;
 import com.ritsync.dto.request.RegisterRequest;
 import com.ritsync.dto.response.ApiResponse;
 import com.ritsync.dto.response.AuthResponse;
@@ -9,7 +10,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -29,9 +29,8 @@ public class AuthController {
         return ApiResponse.ok("Login successful", authService.login(req));
     }
 
-    @PostMapping("/encode")
-    public ApiResponse<String> encode(@RequestBody Map<String, String> body) {
-        String password = body.get("password");
-        return ApiResponse.ok("Encoded", authService.encodePassword(password));
+    @PostMapping("/refresh")
+    public ApiResponse<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest req) {
+        return ApiResponse.ok("Token refreshed", authService.refresh(req.refreshToken()));
     }
 }

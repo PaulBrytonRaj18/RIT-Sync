@@ -64,20 +64,38 @@ ritsync/
 ### Prerequisites
 - Node.js 18+
 - Java 17+
-- MySQL 8+
-- Maven 3.8+
+- MySQL 8+ (or Docker)
+- Maven is **not** required — use the bundled wrapper (`./mvnw`, or `mvnw.cmd` on Windows)
+
+### Configuration (required)
+The app reads secrets from environment variables and **refuses to start** if
+`DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET` or `ENCRYPTION_KEY` are missing.
+For local development, put them in `ritsync-backend/.env` (gitignored, loaded automatically):
+
+```bash
+cd ritsync-backend
+cp .env.example .env
+# then fill in DB_USERNAME / DB_PASSWORD and generate the two secrets:
+openssl rand -base64 32   # -> JWT_SECRET
+openssl rand -base64 32   # -> ENCRYPTION_KEY
+```
 
 ### Database setup
+Either start MySQL with Docker (uses the same `.env`):
 ```bash
-mysql -u root -p < ritsync-backend/src/main/resources/db/init.sql
+docker compose up -d mysql
+```
+or create the database yourself, then seed demo users after the first app start
+(Hibernate creates the tables):
+```bash
+mysql -u root -p < src/main/resources/db/init.sql
 ```
 
 ### Backend
 ```bash
 cd ritsync-backend
-./mvnw spring-boot:run
-# or with custom env:
-DB_USER=ritsync DB_PASSWORD=yourpass JWT_SECRET=yoursecret ./mvnw spring-boot:run
+./mvnw spring-boot:run     # API on http://localhost:8080/api
+./mvnw test                # run the test suite (uses in-memory H2, no MySQL needed)
 ```
 
 ### Frontend
@@ -85,7 +103,7 @@ DB_USER=ritsync DB_PASSWORD=yourpass JWT_SECRET=yoursecret ./mvnw spring-boot:ru
 cd ritsync-frontend
 npm install
 npm run dev
-# Open http://localhost:5173
+# Open http://localhost:3000 (Vite proxies /api to the backend on :8080)
 ```
 
 ### Demo accounts (password: demo1234)
