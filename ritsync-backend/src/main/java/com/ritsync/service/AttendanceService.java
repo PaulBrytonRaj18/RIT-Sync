@@ -16,6 +16,7 @@ import com.ritsync.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,7 +46,7 @@ public class AttendanceService {
     private final LivenessVerificationService livenessService;
     private final BeaconVerificationService   beaconService;
     private final AuditService                auditService;
-    private final NotificationService         notificationService;
+    private final ApplicationEventPublisher   events;
     private final AccessGuard                 guard;
     private final AttendanceStatsService      statsService;
 
@@ -168,10 +169,6 @@ public class AttendanceService {
         auditService.log(studentId, student.getEmail(), "ATTENDANCE_ATTEMPT",
             "attendance_records", record.getId(), audit, null);
 
-        if (allVerified) {
-            notificationService.checkAndNotifyThreshold(studentId, courseId);
-        }
-
         String message = allVerified && record.getStatus() == AttendanceStatus.LATE
             ? "Attendance marked as LATE (more than " + lateAfterMinutes + " minutes after the session started)."
             : buildMessage(faceOk, face.suspectedReplay() || reusedDescriptor, livenessOk, gpsOk,
@@ -236,6 +233,9 @@ public class AttendanceService {
                    "newStatus", req.status().name(), "reason", req.reason()),
             null);
 
+        if (req.status() == AttendanceStatus.ABSENT) {
+            events.publishEvent(new AlertService.AttendanceChangedEvent(List.of(studentId), record.getSession().getCourse().getId()));
+        }
         return AttendanceRecordResponse.from(record);
     }
 

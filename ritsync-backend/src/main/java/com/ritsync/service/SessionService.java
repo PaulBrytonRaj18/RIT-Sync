@@ -16,6 +16,7 @@ import com.ritsync.security.AccessGuard;
 import com.ritsync.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,7 @@ public class SessionService {
     private final AttendanceRecordRepository attendanceRepo;
     private final AuditService               auditService;
     private final AccessGuard                guard;
+    private final ApplicationEventPublisher  events;
 
     @Transactional
     public SessionResponse createSession(CreateSessionRequest req, UserPrincipal actor) {
@@ -104,6 +106,14 @@ public class SessionService {
         sessionRepo.save(session);
         auditService.log(actor.getId(), actor.getEmail(), open ? "SESSION_OPENED" : "SESSION_CLOSED",
             "sessions", sessionId, null, null);
+        if (!open) {
+            // Students still ABSENT when the session closes may have dropped below a threshold.
+            List<Long> absent = attendanceRepo.findBySessionId(sessionId).stream()
+                .filter(r -> r.getStatus() == AttendanceStatus.ABSENT)
+                .map(r -> r.getStudent().getId())
+                .toList();
+            events.publishEvent(new AlertService.AttendanceChangedEvent(absent, session.getCourse().getId()));
+        }
         return SessionResponse.from(session);
     }
 
