@@ -103,7 +103,7 @@ export default function StudentLeaveRequest() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">{lr.leaveType} Leave</p>
                   <p className="text-xs text-gray-500">
-                    {lr.course?.name || '—'} · {lr.fromDate} to {lr.toDate}
+                    {lr.courseName || '—'} · {lr.fromDate} to {lr.toDate}
                   </p>
                 </div>
                 <Badge variant={

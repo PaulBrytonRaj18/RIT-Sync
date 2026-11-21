@@ -33,8 +33,9 @@ public class CourseController {
     @PostMapping("/{courseId}/enroll/{studentId}")
     @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
     public ApiResponse<Void> enrollStudent(@PathVariable Long courseId,
-                                           @PathVariable Long studentId) {
-        courseService.enrollStudent(courseId, studentId);
+                                           @PathVariable Long studentId,
+                                           @AuthenticationPrincipal UserPrincipal principal) {
+        courseService.enrollStudent(courseId, studentId, principal);
         return ApiResponse.ok("Student enrolled", null);
     }
 

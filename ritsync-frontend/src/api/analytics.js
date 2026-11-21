@@ -3,10 +3,12 @@ import apiClient from './client';
 /**
  * Get heatmap data for a session
  * @param {number} sessionId 
- * @returns {Promise<AxiosResponse>}
+ * @returns {Promise<object>} heatmap payload
  */
-export const getHeatmap = (sessionId) => 
-    apiClient.get(`/analytics/heatmap/${sessionId}`);
+export const getHeatmap = async (sessionId) => {
+    const res = await apiClient.get(`/analytics/heatmap/${sessionId}`);
+    return res.data.data;
+};
 
 /**
  * Subscribe to real-time heatmap updates via WebSocket

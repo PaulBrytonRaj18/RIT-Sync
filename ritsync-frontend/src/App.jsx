@@ -1,13 +1,14 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import useAuthStore from './store/authStore'
-import useOfflineStore, { registerSyncTrigger } from './store/offlineStore'
+import { registerSyncTrigger } from './store/offlineStore'
 import AppShell from './components/layout/AppShell'
 import { processSyncQueue } from './offline/syncEngine'
 
 // Auth
 import LoginPage    from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
+import VerifyDevicePage from './pages/auth/VerifyDevicePage'
 
 // Student
 import StudentDashboard    from './pages/student/StudentDashboard'
@@ -73,7 +74,6 @@ function RootRedirect() {
 
 export default function App() {
   const { isAuthenticated } = useAuthStore()
-  const triggerSync = useOfflineStore(s => s.triggerSync)
 
   useEffect(() => {
     registerSyncTrigger(handleSync)
@@ -88,6 +88,7 @@ export default function App() {
       {/* Public */}
       <Route path="/login"    element={<GuestOnly><LoginPage /></GuestOnly>} />
       <Route path="/register" element={<GuestOnly><RegisterPage /></GuestOnly>} />
+      <Route path="/verify-device" element={<VerifyDevicePage />} />
       <Route path="/"         element={<RootRedirect />} />
 
       {/* Student */}

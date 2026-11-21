@@ -16,4 +16,5 @@ public class RitSyncException extends RuntimeException {
     public static RitSyncException conflict(String msg)    { return new RitSyncException(msg, HttpStatus.CONFLICT); }
     public static RitSyncException unauthorized(String msg) { return new RitSyncException(msg, HttpStatus.UNAUTHORIZED); }
     public static RitSyncException internal(String msg)     { return new RitSyncException(msg, HttpStatus.INTERNAL_SERVER_ERROR); }
+    public static RitSyncException tooManyRequests(String msg) { return new RitSyncException(msg, HttpStatus.TOO_MANY_REQUESTS); }
 }

@@ -14,8 +14,8 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const loginStore = useAuthStore(s => s.login)
   const [form, setForm] = useState({
-    name: '', email: '', password: '', role: 'STUDENT',
-    department: 'CSE', rollNumber: '', employeeId: '', phone: ''
+    name: '', email: '', password: '',
+    department: 'CSE', rollNumber: '', phone: ''
   })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
@@ -29,8 +29,7 @@ export default function RegisterPage() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email format'
     if (!form.password) e.password = 'Password is required'
     else if (form.password.length < 8) e.password = 'Password must be at least 8 characters'
-    if (form.role === 'STUDENT' && !form.rollNumber.trim()) e.rollNumber = 'Roll number is required for students'
-    if (form.role === 'TEACHER' && !form.employeeId.trim()) e.employeeId = 'Employee ID is required for teachers'
+    if (!form.rollNumber.trim()) e.rollNumber = 'Roll number is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -40,11 +39,10 @@ export default function RegisterPage() {
     if (!validate()) return
     setLoading(true)
     try {
-      const data = await authApi.register(form)
+      const data = await authApi.register({ ...form, role: 'STUDENT' })
       loginStore(data)
       toast.success('Account created!')
-      const routes = { STUDENT: '/student', TEACHER: '/teacher' }
-      navigate(routes[data.user.role] || '/student', { replace: true })
+      navigate('/student', { replace: true })
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed')
     } finally {
@@ -60,7 +58,7 @@ export default function RegisterPage() {
             <CheckSquare size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
-          <p className="text-gray-500 text-sm mt-1">Join RIT-Sync</p>
+          <p className="text-gray-500 text-sm mt-1">Student sign-up · Teacher accounts are created by your administrator</p>
         </div>
 
         <div className="card">
@@ -70,20 +68,11 @@ export default function RegisterPage() {
             <Input label="Password" type="password" placeholder="Min 8 characters" value={form.password} onChange={set('password')} error={errors.password} required minLength={8} />
 
             <div className="grid grid-cols-2 gap-3">
-              <Select label="Role" value={form.role} onChange={set('role')}>
-                <option value="STUDENT">Student</option>
-                <option value="TEACHER">Teacher</option>
-              </Select>
               <Select label="Department" value={form.department} onChange={set('department')}>
                 {DEPARTMENTS.map(d => <option key={d}>{d}</option>)}
               </Select>
-            </div>
-
-            {form.role === 'STUDENT' ? (
               <Input label="Roll number" placeholder="21CSE001" value={form.rollNumber} onChange={set('rollNumber')} error={errors.rollNumber} required />
-            ) : (
-              <Input label="Employee ID" placeholder="EMP001" value={form.employeeId} onChange={set('employeeId')} error={errors.employeeId} required />
-            )}
+            </div>
 
             <Input label="Phone (optional)" type="tel" placeholder="+91 9876543210" value={form.phone} onChange={set('phone')} />
 

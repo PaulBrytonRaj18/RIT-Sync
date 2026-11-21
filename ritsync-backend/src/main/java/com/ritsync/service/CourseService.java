@@ -9,6 +9,8 @@ import com.ritsync.exception.RitSyncException;
 import com.ritsync.repository.CourseRepository;
 import com.ritsync.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
+import com.ritsync.security.AccessGuard;
+import com.ritsync.security.UserPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ public class CourseService {
     private final CourseRepository    courseRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final UserService         userService;
+    private final AccessGuard         guard;
 
     @Transactional
     public CourseResponse createCourse(CreateCourseRequest req, Long instructorId) {
@@ -44,7 +47,8 @@ public class CourseService {
     }
 
     @Transactional
-    public Enrollment enrollStudent(Long courseId, Long studentId) {
+    public Enrollment enrollStudent(Long courseId, Long studentId, UserPrincipal actor) {
+        var course = guard.requireManage(courseId, actor);
         var student = userService.findOrThrow(studentId);
         if (student.getRole() != Role.STUDENT) {
             throw RitSyncException.badRequest("Only students can be enrolled");
@@ -52,8 +56,6 @@ public class CourseService {
         if (enrollmentRepository.existsByStudentIdAndCourseIdAndIsActiveTrue(studentId, courseId)) {
             throw RitSyncException.conflict("Student already enrolled in this course");
         }
-        var course = courseRepository.findById(courseId)
-                .orElseThrow(() -> RitSyncException.notFound("Course not found: " + courseId));
         var enrollment = Enrollment.builder().student(student).course(course).build();
         return enrollmentRepository.save(enrollment);
     }

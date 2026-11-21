@@ -28,25 +28,30 @@ public class SessionController {
             @Valid @RequestBody CreateSessionRequest req,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.ok("Session created",
-            sessionService.createSession(req, principal.getId()));
+            sessionService.createSession(req, principal));
     }
 
     @GetMapping("/course/{courseId}")
     @PreAuthorize("isAuthenticated()")
-    public ApiResponse<List<SessionResponse>> getCourseSessions(@PathVariable Long courseId) {
-        return ApiResponse.ok(sessionService.getCourseSessions(courseId));
+    public ApiResponse<List<SessionResponse>> getCourseSessions(
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.ok(sessionService.getCourseSessions(courseId, principal));
     }
 
     @GetMapping("/open")
     @PreAuthorize("isAuthenticated()")
-    public ApiResponse<List<SessionResponse>> getOpenSessions() {
-        return ApiResponse.ok(sessionService.getOpenSessions());
+    public ApiResponse<List<SessionResponse>> getOpenSessions(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.ok(sessionService.getOpenSessions(principal));
     }
 
     @GetMapping("/{sessionId}")
     @PreAuthorize("isAuthenticated()")
-    public ApiResponse<SessionResponse> getSession(@PathVariable Long sessionId) {
-        return ApiResponse.ok(sessionService.getById(sessionId));
+    public ApiResponse<SessionResponse> getSession(
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.ok(sessionService.getById(sessionId, principal));
     }
 
     @PatchMapping("/{sessionId}/open")
@@ -55,7 +60,7 @@ public class SessionController {
             @PathVariable Long sessionId,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.ok("Session opened",
-            sessionService.openSession(sessionId, principal.getId()));
+            sessionService.openSession(sessionId, principal));
     }
 
     @PatchMapping("/{sessionId}/close")
@@ -64,6 +69,6 @@ public class SessionController {
             @PathVariable Long sessionId,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.ok("Session closed",
-            sessionService.closeSession(sessionId, principal.getId()));
+            sessionService.closeSession(sessionId, principal));
     }
 }

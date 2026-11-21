@@ -7,6 +7,7 @@ import com.ritsync.exception.RitSyncException;
 import com.ritsync.repository.DeviceBindingRepository;
 import com.ritsync.repository.UserRepository;
 import com.ritsync.security.UserPrincipal;
+import com.ritsync.service.DeviceVerificationService;
 import com.ritsync.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,7 @@ public class DeviceController {
     private final DeviceBindingRepository deviceBindingRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final DeviceVerificationService deviceVerificationService;
 
     private static String generateSecureToken() {
         byte[] tokenBytes = new byte[32];
@@ -84,13 +86,10 @@ public class DeviceController {
             throw RitSyncException.badRequest("Verification token has expired");
         }
         
-        device.setIsTrusted(true);
-        device.setVerifiedAt(LocalDateTime.now());
-        device.setVerificationToken(null);
-        device.setVerificationExpiry(null);
-        deviceBindingRepository.save(device);
-        
-        log.info("Device {} verified for user {}", device.getDeviceName(), device.getUser().getEmail());
+        // Only one trusted device per user: confirming this one untrusts the others.
+        deviceVerificationService.trustExclusively(device);
+
+        log.info("Device {} verified for user {}", device.getId(), device.getUser().getId());
         
         return ApiResponse.ok("Device verified successfully", DeviceResponse.from(device));
     }

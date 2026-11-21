@@ -73,7 +73,6 @@ export function useFaceVerification() {
       .withFaceDescriptor()
     if (!detection) { setStatus('ready'); return null }
     const descriptor = Array.from(detection.descriptor)
-    sessionStorage.setItem('_face_descriptor_cache', JSON.stringify(descriptor))
     setStatus('done')
     return descriptor
   }, [loadModels])
@@ -102,7 +101,6 @@ export function useFaceVerification() {
     setStatus(verified ? 'verified' : 'failed')
 
     const descriptor = Array.from(detection.descriptor)
-    sessionStorage.setItem('_face_descriptor_cache', JSON.stringify(descriptor))
 
     return { verified, confidence: conf, distance, faceDescriptor: descriptor }
   }, [loadModels])

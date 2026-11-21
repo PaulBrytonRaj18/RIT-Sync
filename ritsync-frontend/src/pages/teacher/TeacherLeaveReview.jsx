@@ -55,12 +55,12 @@ export default function TeacherLeaveReview() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">
-                    {lr.student?.name || 'Student'} · {lr.leaveType}
+                    {lr.studentName || 'Student'} · {lr.leaveType}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {lr.course?.name || '—'} · {lr.fromDate} to {lr.toDate}
+                    {lr.courseName || '—'} · {lr.fromDate} to {lr.toDate}
                   </p>
-                  <p className="text-xs text-gray-500">Roll: {lr.student?.rollNumber || '—'}</p>
+                  <p className="text-xs text-gray-500">Roll: {lr.studentRollNumber || '—'}</p>
                   {lr.reason && <p className="text-xs text-gray-600 mt-1">{lr.reason}</p>}
                 </div>
                 <Badge variant="yellow">PENDING</Badge>
@@ -79,8 +79,8 @@ export default function TeacherLeaveReview() {
         {reviewing && (
           <div className="space-y-4">
             <div className="text-sm space-y-1">
-              <p><span className="text-gray-500">Student:</span> {reviewing.student?.name}</p>
-              <p><span className="text-gray-500">Course:</span> {reviewing.course?.name}</p>
+              <p><span className="text-gray-500">Student:</span> {reviewing.studentName}</p>
+              <p><span className="text-gray-500">Course:</span> {reviewing.courseName}</p>
               <p><span className="text-gray-500">Type:</span> {reviewing.leaveType}</p>
               <p><span className="text-gray-500">Dates:</span> {reviewing.fromDate} to {reviewing.toDate}</p>
               <p><span className="text-gray-500">Reason:</span> {reviewing.reason}</p>

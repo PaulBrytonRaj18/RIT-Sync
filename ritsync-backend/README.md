@@ -135,6 +135,27 @@ curl -O https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/w
 
 ---
 
+## Verification model (what the server enforces)
+
+Every attendance decision is made **on the server** from submitted evidence; client-reported
+"verified" flags are ignored.
+
+| Check | Enforced rule |
+|---|---|
+| Eligibility | Student must be actively enrolled in the course; session open and within its time window; max 5 attempts per session |
+| Face | Live 128-d descriptor must be within 0.55 of the enrolled template. Near-identical matches (< 0.02) and byte-identical re-submissions are rejected as replays. Enrollment is one-time; an admin can reset it |
+| Liveness | When the session enables it: ~5 s of facial landmarks are analysed server-side for a real blink (EAR open→closed→open) and natural motion |
+| GPS | Within the session geofence **and** reported accuracy ≤ 150 m |
+| BLE beacon | When the session enables it: rotating token must match the beacon of *this* session, unexpired, with RSSI ≥ threshold |
+| Device | First device a user signs in from is trusted; later devices need email confirmation, and only one device is trusted at a time |
+| Ownership | Teachers can only manage their own courses/sessions/leaves; admins can manage all |
+
+**Honest limits.** Face descriptors, landmarks, GPS coordinates, beacon RSSI and the device
+fingerprint are all produced by the browser, so a determined attacker who scripts the API can
+still forge them. These checks make proxy attendance substantially harder from a normal browser;
+they are not cryptographic proof of presence. The web client has no real BLE beacon reader yet,
+so leave BLE disabled unless you pair it with dedicated beacon hardware/app.
+
 ## Core Features Built
 
 ### Phase 1 — Scaffold & Auth ✅

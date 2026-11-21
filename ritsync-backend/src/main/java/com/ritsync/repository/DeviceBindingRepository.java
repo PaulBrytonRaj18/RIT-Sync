@@ -13,4 +13,7 @@ public interface DeviceBindingRepository extends JpaRepository<DeviceBinding, Lo
     List<DeviceBinding> findByUserId(Long userId);
     boolean existsByUserIdAndDeviceFingerprintAndIsTrustedTrue(Long userId, String fingerprint);
     Optional<DeviceBinding> findByVerificationToken(String token);
+    boolean existsByUserId(Long userId);
+    List<DeviceBinding> findByUserIdAndIsTrustedTrue(Long userId);
+    void deleteByUserId(Long userId);
 }

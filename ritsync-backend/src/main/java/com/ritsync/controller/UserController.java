@@ -3,6 +3,8 @@ package com.ritsync.controller;
 import com.ritsync.dto.response.ApiResponse;
 import com.ritsync.dto.response.UserResponse;
 import com.ritsync.enums.Role;
+import com.ritsync.exception.RitSyncException;
+import com.ritsync.security.AccessGuard;
 import com.ritsync.security.UserPrincipal;
 import com.ritsync.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +34,12 @@ public class UserController {
 
     @GetMapping("/role/{role}")
     @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
-    public ApiResponse<List<UserResponse>> getUsersByRole(@PathVariable Role role) {
+    public ApiResponse<List<UserResponse>> getUsersByRole(@PathVariable Role role,
+                                                          @AuthenticationPrincipal UserPrincipal principal) {
+        // Teachers may look up students (e.g. to enroll them), but not other staff accounts.
+        if (!AccessGuard.isAdmin(principal) && role != Role.STUDENT) {
+            throw RitSyncException.forbidden("Only administrators can list staff accounts.");
+        }
         return ApiResponse.ok(userService.getUsersByRole(role));
     }
 

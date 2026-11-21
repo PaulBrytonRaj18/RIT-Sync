@@ -46,16 +46,18 @@ public class AttendanceController {
     @GetMapping("/session/{sessionId}")
     @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
     public ApiResponse<List<AttendanceRecordResponse>> getSessionAttendance(
-            @PathVariable Long sessionId) {
-        return ApiResponse.ok(attendanceService.getSessionAttendance(sessionId));
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.ok(attendanceService.getSessionAttendance(sessionId, principal));
     }
 
     @GetMapping("/stats/{studentId}/course/{courseId}")
-    @PreAuthorize("hasAnyRole('TEACHER','ADMIN') or #studentId == authentication.principal.id")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<AttendanceStatsResponse> getStudentStats(
             @PathVariable Long studentId,
-            @PathVariable Long courseId) {
-        return ApiResponse.ok(attendanceService.getStudentStats(studentId, courseId));
+            @PathVariable Long courseId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.ok(attendanceService.getStudentStats(studentId, courseId, principal));
     }
 
     @PutMapping("/override/{sessionId}/student/{studentId}")
@@ -67,6 +69,6 @@ public class AttendanceController {
             @AuthenticationPrincipal UserPrincipal principal) {
 
         return ApiResponse.ok("Attendance overridden",
-            attendanceService.manualOverride(sessionId, studentId, req, principal.getId()));
+            attendanceService.manualOverride(sessionId, studentId, req, principal));
     }
 }

@@ -9,4 +9,5 @@ public interface BeaconRepository extends JpaRepository<Beacon, Long> {
     Optional<Beacon> findByUuidAndIsActiveTrue(String uuid);
     List<Beacon> findBySessionIdAndIsActiveTrue(Long sessionId);
     void deleteBySessionId(Long sessionId);
+    List<Beacon> findByIsActiveTrueAndTokenExpiryBefore(java.time.LocalDateTime cutoff);
 }
