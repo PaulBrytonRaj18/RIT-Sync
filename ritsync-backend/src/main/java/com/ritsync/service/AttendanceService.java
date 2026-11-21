@@ -169,6 +169,10 @@ public class AttendanceService {
         auditService.log(studentId, student.getEmail(), "ATTENDANCE_ATTEMPT",
             "attendance_records", record.getId(), audit, null);
 
+        if (allVerified) {
+            events.publishEvent(new HeatmapPublisher.CheckInEvent(session.getId()));
+        }
+
         String message = allVerified && record.getStatus() == AttendanceStatus.LATE
             ? "Attendance marked as LATE (more than " + lateAfterMinutes + " minutes after the session started)."
             : buildMessage(faceOk, face.suspectedReplay() || reusedDescriptor, livenessOk, gpsOk,

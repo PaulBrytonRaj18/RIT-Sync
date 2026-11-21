@@ -2,6 +2,7 @@ package com.ritsync.service;
 
 import com.ritsync.entity.AttendanceRecord;
 import com.ritsync.entity.Session;
+import com.ritsync.exception.RitSyncException;
 import com.ritsync.repository.AttendanceRecordRepository;
 import com.ritsync.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,13 +20,15 @@ public class HeatmapAnalyticsService {
     private static final double DBSCAN_EPS = 5.0;
     private static final int DBSCAN_MIN_PTS = 2;
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Map<String, Object> getSessionHeatmap(Long sessionId) {
         Session session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+                .orElseThrow(() -> RitSyncException.notFound("Session not found: " + sessionId));
 
         List<AttendanceRecord> records = attendanceRecordRepository.findBySessionId(sessionId).stream()
                 .filter(r -> r.getUserLat() != null && r.getUserLng() != null)
-                .filter(r -> "PRESENT".equals(r.getStatus().name()))
+                .filter(r -> r.getStatus() == com.ritsync.enums.AttendanceStatus.PRESENT
+                          || r.getStatus() == com.ritsync.enums.AttendanceStatus.LATE)
                 .toList();
 
         List<double[]> points = records.stream()
