@@ -17,19 +17,6 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     List<AttendanceRecord> findByStudentId(Long studentId);
     boolean existsByStudentIdAndFaceDescriptorHash(Long studentId, String faceDescriptorHash);
 
-    long countByStatus(AttendanceStatus status);
-
-    long countByMarkedAtBetween(LocalDateTime from, LocalDateTime to);
-
-    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.markedAt BETWEEN :from AND :to AND a.status = :status")
-    long countByMarkedAtBetweenAndStatus(LocalDateTime from, LocalDateTime to, AttendanceStatus status);
-
-    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.session.course.department = :dept")
-    long countByStudentDepartment(String dept);
-
-    @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.session.course.department = :dept AND a.status = :status")
-    long countByStudentDepartmentAndStatus(String dept, AttendanceStatus status);
-
     // ── Attendance statistics ────────────────────────────────────────────
     // A record "counts" once its session has ended, or earlier if the student already has a
     // non-ABSENT status (so an ongoing class doesn't show everyone as absent).
@@ -50,6 +37,32 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
         GROUP BY a.session.course.id, a.student.id, a.status
     """)
     List<Object[]> countStatusesPerCourseAndStudent(List<Long> courseIds, LocalDateTime now, AttendanceStatus absent);
+
+    /** Status counts over every course (admin overview). */
+    @Query("""
+        SELECT a.status, COUNT(a) FROM AttendanceRecord a
+        WHERE (a.session.endTime <= :now OR a.status <> :absent)
+        GROUP BY a.status
+    """)
+    List<Object[]> countStatusesOverall(LocalDateTime now, AttendanceStatus absent);
+
+    /** Status counts for sessions that started in [from, to). */
+    @Query("""
+        SELECT a.status, COUNT(a) FROM AttendanceRecord a
+        WHERE a.session.startTime >= :from AND a.session.startTime < :to
+          AND (a.session.endTime <= :now OR a.status <> :absent)
+        GROUP BY a.status
+    """)
+    List<Object[]> countStatusesForSessionsStartingBetween(LocalDateTime from, LocalDateTime to,
+                                                           LocalDateTime now, AttendanceStatus absent);
+
+    /** Status counts grouped by the STUDENT's department. */
+    @Query("""
+        SELECT a.student.department, a.status, COUNT(a) FROM AttendanceRecord a
+        WHERE (a.session.endTime <= :now OR a.status <> :absent)
+        GROUP BY a.student.department, a.status
+    """)
+    List<Object[]> countStatusesByStudentDepartment(LocalDateTime now, AttendanceStatus absent);
 
     @Query("""
         SELECT a.session.id, a.student.id, a.status FROM AttendanceRecord a

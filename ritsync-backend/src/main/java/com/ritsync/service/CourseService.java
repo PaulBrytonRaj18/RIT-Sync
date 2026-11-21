@@ -83,6 +83,12 @@ public class CourseService {
     }
 
     @Transactional(readOnly = true)
+    public CourseResponse getById(Long courseId, UserPrincipal actor) {
+        Course course = guard.requireView(courseId, actor);
+        return CourseResponse.from(course, courseRepository.countEnrolledStudents(courseId));
+    }
+
+    @Transactional(readOnly = true)
     public List<CourseResponse> getStudentCourses(Long studentId) {
         List<Course> courses = courseRepository.findEnrolledCoursesByStudentId(studentId);
         List<Long> courseIds = courses.stream().map(Course::getId).toList();

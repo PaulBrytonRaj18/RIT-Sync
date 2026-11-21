@@ -49,12 +49,8 @@ public class AttendanceStatsService {
 
     @Transactional(readOnly = true)
     public Counts forStudent(Long studentId, Long courseId) {
-        Counts c = Counts.EMPTY;
-        for (Object[] row : attendanceRepo.countStatusesForStudent(
-                studentId, courseId, LocalDateTime.now(), AttendanceStatus.ABSENT)) {
-            c = c.plus((AttendanceStatus) row[0], (Long) row[1]);
-        }
-        return c;
+        return fromStatusRows(attendanceRepo.countStatusesForStudent(
+            studentId, courseId, LocalDateTime.now(), AttendanceStatus.ABSENT));
     }
 
     /** courseId → studentId → counts, computed with one grouped query. */
@@ -71,6 +67,35 @@ public class AttendanceStatsService {
                          AttendanceStatsService::sum);
         }
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public Counts overall() {
+        return fromStatusRows(attendanceRepo.countStatusesOverall(LocalDateTime.now(), AttendanceStatus.ABSENT));
+    }
+
+    /** Counts for sessions that started within [from, to). */
+    @Transactional(readOnly = true)
+    public Counts forSessionsStartingBetween(LocalDateTime from, LocalDateTime to) {
+        return fromStatusRows(attendanceRepo.countStatusesForSessionsStartingBetween(
+            from, to, LocalDateTime.now(), AttendanceStatus.ABSENT));
+    }
+
+    /** department → counts, by the student's department. */
+    @Transactional(readOnly = true)
+    public Map<String, Counts> byStudentDepartment() {
+        Map<String, Counts> result = new HashMap<>();
+        for (Object[] row : attendanceRepo.countStatusesByStudentDepartment(LocalDateTime.now(), AttendanceStatus.ABSENT)) {
+            String dept = row[0] == null ? "Unassigned" : (String) row[0];
+            result.merge(dept, Counts.EMPTY.plus((AttendanceStatus) row[1], (Long) row[2]), AttendanceStatsService::sum);
+        }
+        return result;
+    }
+
+    private static Counts fromStatusRows(List<Object[]> rows) {
+        Counts c = Counts.EMPTY;
+        for (Object[] row : rows) c = c.plus((AttendanceStatus) row[0], (Long) row[1]);
+        return c;
     }
 
     private static Counts sum(Counts a, Counts b) {
