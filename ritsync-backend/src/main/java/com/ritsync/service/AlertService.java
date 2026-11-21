@@ -20,6 +20,7 @@ public class AlertService {
     private final AttendanceRecordRepository recordRepo;
     private final UserRepository             userRepo;
     private final JavaMailSender             mailSender;
+    private final AttendanceStatsService     statsService;
 
     @Value("${app.attendance.threshold-critical-percent:65}")
     private int criticalPercent;
@@ -30,12 +31,11 @@ public class AlertService {
     @Async
     public void checkAndAlertAsync(Long studentId, Long courseId) {
         try {
-            long total   = recordRepo.countTotalSessionsByStudentAndCourse(studentId, courseId);
-            if (total < 5) return;
-
-            long present = recordRepo.countByStudentAndCourseAndStatus(studentId, courseId, AttendanceStatus.PRESENT);
-            long late    = recordRepo.countByStudentAndCourseAndStatus(studentId, courseId, AttendanceStatus.LATE);
-            double pct   = (present + late) * 100.0 / total;
+            var counts = statsService.forStudent(studentId, courseId);
+            if (counts.counted() < 5) return;
+            long present = counts.present() + counts.late();
+            long total   = counts.counted();
+            double pct   = counts.percentage();
 
             if (pct < criticalPercent) {
                 sendCriticalAlert(studentId, courseId, pct, present, total);

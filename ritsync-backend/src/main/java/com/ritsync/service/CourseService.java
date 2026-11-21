@@ -9,11 +9,16 @@ import com.ritsync.exception.RitSyncException;
 import com.ritsync.repository.CourseRepository;
 import com.ritsync.repository.EnrollmentRepository;
 import lombok.RequiredArgsConstructor;
+import com.ritsync.entity.AttendanceRecord;
+import com.ritsync.enums.AttendanceStatus;
+import com.ritsync.repository.AttendanceRecordRepository;
+import com.ritsync.repository.SessionRepository;
 import com.ritsync.security.AccessGuard;
 import com.ritsync.security.UserPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,6 +31,8 @@ public class CourseService {
     private final EnrollmentRepository enrollmentRepository;
     private final UserService         userService;
     private final AccessGuard         guard;
+    private final SessionRepository   sessionRepository;
+    private final AttendanceRecordRepository attendanceRepository;
 
     @Transactional
     public CourseResponse createCourse(CreateCourseRequest req, Long instructorId) {
@@ -53,11 +60,26 @@ public class CourseService {
         if (student.getRole() != Role.STUDENT) {
             throw RitSyncException.badRequest("Only students can be enrolled");
         }
-        if (enrollmentRepository.existsByStudentIdAndCourseIdAndIsActiveTrue(studentId, courseId)) {
+        var existing = enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId);
+        if (existing.isPresent() && Boolean.TRUE.equals(existing.get().getIsActive())) {
             throw RitSyncException.conflict("Student already enrolled in this course");
         }
-        var enrollment = Enrollment.builder().student(student).course(course).build();
-        return enrollmentRepository.save(enrollment);
+        // Re-enrolling reactivates the old row (the (student, course) pair is unique).
+        Enrollment enrollment = existing
+            .map(e -> { e.setIsActive(true); return e; })
+            .orElseGet(() -> Enrollment.builder().student(student).course(course).build());
+        enrollment = enrollmentRepository.save(enrollment);
+
+        // Mid-term enrollment: create ABSENT placeholders for sessions that haven't ended yet,
+        // so the student appears in rosters. Sessions that ended before they joined are never counted.
+        var now = LocalDateTime.now();
+        var records = sessionRepository.findByCourseIdOrderByStartTimeDesc(courseId).stream()
+            .filter(s -> s.getEndTime().isAfter(now))
+            .filter(s -> attendanceRepository.findBySessionIdAndStudentId(s.getId(), studentId).isEmpty())
+            .map(s -> AttendanceRecord.builder().session(s).student(student).status(AttendanceStatus.ABSENT).build())
+            .toList();
+        attendanceRepository.saveAll(records);
+        return enrollment;
     }
 
     @Transactional(readOnly = true)

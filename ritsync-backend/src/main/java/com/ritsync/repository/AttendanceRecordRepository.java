@@ -30,18 +30,30 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     @Query("SELECT COUNT(a) FROM AttendanceRecord a WHERE a.session.course.department = :dept AND a.status = :status")
     long countByStudentDepartmentAndStatus(String dept, AttendanceStatus status);
 
-    @Query("""
-        SELECT COUNT(a) FROM AttendanceRecord a
-        WHERE a.student.id = :studentId
-          AND a.session.course.id = :courseId
-          AND a.status = :status
-    """)
-    long countByStudentAndCourseAndStatus(Long studentId, Long courseId, AttendanceStatus status);
+    // ── Attendance statistics ────────────────────────────────────────────
+    // A record "counts" once its session has ended, or earlier if the student already has a
+    // non-ABSENT status (so an ongoing class doesn't show everyone as absent).
 
     @Query("""
-        SELECT COUNT(DISTINCT a.session.id) FROM AttendanceRecord a
+        SELECT a.status, COUNT(a) FROM AttendanceRecord a
         WHERE a.student.id = :studentId
           AND a.session.course.id = :courseId
+          AND (a.session.endTime <= :now OR a.status <> :absent)
+        GROUP BY a.status
     """)
-    long countTotalSessionsByStudentAndCourse(Long studentId, Long courseId);
+    List<Object[]> countStatusesForStudent(Long studentId, Long courseId, LocalDateTime now, AttendanceStatus absent);
+
+    @Query("""
+        SELECT a.session.course.id, a.student.id, a.status, COUNT(a) FROM AttendanceRecord a
+        WHERE a.session.course.id IN :courseIds
+          AND (a.session.endTime <= :now OR a.status <> :absent)
+        GROUP BY a.session.course.id, a.student.id, a.status
+    """)
+    List<Object[]> countStatusesPerCourseAndStudent(List<Long> courseIds, LocalDateTime now, AttendanceStatus absent);
+
+    @Query("""
+        SELECT a.session.id, a.student.id, a.status FROM AttendanceRecord a
+        WHERE a.session.id IN :sessionIds
+    """)
+    List<Object[]> findStatusesForSessions(List<Long> sessionIds);
 }

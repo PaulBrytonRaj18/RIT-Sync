@@ -17,6 +17,7 @@ public class NotificationService {
 
     private final AttendanceRecordRepository attendanceRepo;
     private final UserRepository             userRepository;
+    private final AttendanceStatsService     statsService;
 
     @Value("${app.attendance.threshold-warning-percent:75}")
     private double warningThreshold;
@@ -26,15 +27,9 @@ public class NotificationService {
 
     @Async
     public void checkAndNotifyThreshold(Long studentId, Long courseId) {
-        long total   = attendanceRepo.countTotalSessionsByStudentAndCourse(studentId, courseId);
-        if (total == 0) return;
-
-        long present = attendanceRepo.countByStudentAndCourseAndStatus(
-            studentId, courseId, AttendanceStatus.PRESENT);
-        long late    = attendanceRepo.countByStudentAndCourseAndStatus(
-            studentId, courseId, AttendanceStatus.LATE);
-
-        double pct = (present + late) * 100.0 / total;
+        var counts = statsService.forStudent(studentId, courseId);
+        if (!counts.hasData()) return;
+        double pct = counts.percentage();
 
         if (pct < criticalThreshold) {
             log.warn("CRITICAL threshold: student {} course {} at {:.1f}%", studentId, courseId, pct);

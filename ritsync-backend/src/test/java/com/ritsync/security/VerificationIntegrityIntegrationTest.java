@@ -95,7 +95,7 @@ class VerificationIntegrityIntegrationTest {
         Map<String, Object> body = new HashMap<>();
         body.put("courseId", course);
         body.put("title", "Lecture");
-        body.put("startTime", LocalDateTime.now().minusMinutes(10).toString());
+        body.put("startTime", LocalDateTime.now().minusMinutes(2).toString());
         body.put("endTime", LocalDateTime.now().plusMinutes(50).toString());
         body.put("geofenceLat", LAT);
         body.put("geofenceLng", LNG);
