@@ -20,8 +20,7 @@ export default function HeatmapDashboard({ sessionId }) {
         const loadHeatmap = async () => {
             try {
                 setLoading(true);
-                const res = await getHeatmap(sessionId);
-                setHeatmapData(res.data);
+                setHeatmapData(await getHeatmap(sessionId));
                 setError(null);
             } catch (err) {
                 console.error('Heatmap load error:', err);
@@ -125,4 +124,4 @@ export default function HeatmapDashboard({ sessionId }) {
             </div>
         </div>
     );
-};
+}

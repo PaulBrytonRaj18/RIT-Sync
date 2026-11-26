@@ -1,7 +1,6 @@
 package com.ritsync.controller;
 
 import com.ritsync.dto.response.*;
-import com.ritsync.entity.LeaveRequest;
 import com.ritsync.security.UserPrincipal;
 import com.ritsync.service.TeacherService;
 import lombok.RequiredArgsConstructor;
@@ -51,7 +50,7 @@ public class TeacherController {
 
     @PostMapping("/leaves")
     @PreAuthorize("hasRole('STUDENT')")
-    public ApiResponse<LeaveRequest> requestLeave(
+    public ApiResponse<LeaveRequestResponse> requestLeave(
             @RequestParam Long courseId,
             @RequestParam String leaveType,
             @RequestParam String reason,
@@ -64,24 +63,24 @@ public class TeacherController {
 
     @GetMapping("/leaves/pending")
     @PreAuthorize("hasRole('TEACHER')")
-    public ApiResponse<List<LeaveRequest>> getPendingLeaves(@AuthenticationPrincipal UserPrincipal principal) {
+    public ApiResponse<List<LeaveRequestResponse>> getPendingLeaves(@AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.ok(teacherService.getPendingLeaves(principal.getId()));
     }
 
     @PutMapping("/leaves/{leaveId}/review")
-    @PreAuthorize("hasRole('TEACHER')")
-    public ApiResponse<LeaveRequest> reviewLeave(
+    @PreAuthorize("hasAnyRole('TEACHER','ADMIN')")
+    public ApiResponse<LeaveRequestResponse> reviewLeave(
             @PathVariable Long leaveId,
             @RequestParam String decision,
             @RequestParam(required = false) String notes,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.ok("Leave " + decision.toLowerCase(),
-            teacherService.reviewLeaveRequest(leaveId, principal.getId(), decision, notes));
+        var result = teacherService.reviewLeaveRequest(leaveId, principal, decision, notes);
+        return ApiResponse.ok("Leave " + result.status().toLowerCase(), result);
     }
 
     @GetMapping("/leaves/my")
     @PreAuthorize("hasRole('STUDENT')")
-    public ApiResponse<List<LeaveRequest>> getMyLeaves(@AuthenticationPrincipal UserPrincipal principal) {
+    public ApiResponse<List<LeaveRequestResponse>> getMyLeaves(@AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.ok(teacherService.getStudentLeaveHistory(principal.getId()));
     }
 }

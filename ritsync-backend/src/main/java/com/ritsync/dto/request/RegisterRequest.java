@@ -7,7 +7,8 @@ public record RegisterRequest(
     @NotBlank                             String name,
     @Email @NotBlank                      String email,
     @NotBlank @Size(min = 8, max = 72)    String password,
-    @NotNull                              Role   role,
+    /** Optional; only STUDENT is accepted. */
+                                          Role   role,
     @NotBlank                             String department,
                                           String rollNumber,
                                           String employeeId,

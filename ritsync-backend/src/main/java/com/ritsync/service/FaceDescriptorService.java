@@ -59,7 +59,8 @@ public class FaceDescriptorService {
     @Transactional
     public void enroll(Long userId, List<Double> descriptor,
                        String encryptedDescriptor, String encryptionIv, String salt) {
-        if (descriptor == null || descriptor.size() != 128) {
+        if (descriptor == null || descriptor.size() != 128
+                || descriptor.stream().anyMatch(d -> d == null || !Double.isFinite(d))) {
             throw RitSyncException.badRequest(
                 "Face descriptor must be a 128-element float array from face-api.js.");
         }
@@ -74,8 +75,13 @@ public class FaceDescriptorService {
 
         String encrypted = encrypt(json);
 
-        FaceDescriptor entity = faceDescriptorRepository.findByUserId(userId)
-            .orElseGet(() -> FaceDescriptor.builder().user(user).build());
+        // One-time enrollment: re-enrolling would let someone else register their own face on this
+        // account and then mark attendance for it. Resets go through an administrator.
+        if (faceDescriptorRepository.existsByUserId(userId)) {
+            throw RitSyncException.conflict(
+                "Face ID is already enrolled. Ask an administrator to reset it if you need to re-enroll.");
+        }
+        FaceDescriptor entity = FaceDescriptor.builder().user(user).build();
 
         entity.setDescriptor(encrypted);
         entity.setEncryptedDescriptor(encryptedDescriptor);
@@ -87,6 +93,16 @@ public class FaceDescriptorService {
 
     public boolean isEnrolled(Long userId) {
         return faceDescriptorRepository.existsByUserId(userId);
+    }
+
+    /** Admin-only: removes a user's enrolled face so they can enroll again. */
+    @Transactional
+    public void resetEnrollment(Long userId) {
+        faceDescriptorRepository.findByUserId(userId).ifPresent(fd -> {
+            User user = fd.getUser();
+            if (user != null) user.setFaceDescriptor(null);
+            faceDescriptorRepository.delete(fd);
+        });
     }
 
     public List<Double> getDescriptor(Long userId) {

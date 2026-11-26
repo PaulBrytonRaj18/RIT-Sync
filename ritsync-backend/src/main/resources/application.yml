@@ -22,7 +22,6 @@ spring:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
     show-sql: false
-    open-in-view: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
@@ -73,11 +72,17 @@ app:
     key: ${ENCRYPTION_KEY}
   geofence:
     default-radius-meters: 100
+    # Reported GPS accuracy (metres) worse than this fails the geofence check
+    max-accuracy-m: 150
   face:
     threshold: 0.55
+    # Live descriptors closer than this to the enrolled template are treated as replays
+    replay-threshold: 0.02
   attendance:
     threshold-warning-percent: 75
     threshold-critical-percent: 65
+    # Verification attempts allowed per student per session
+    max-attempts: 5
   cors:
     # Comma-separated list of frontend origins allowed to call the API
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}

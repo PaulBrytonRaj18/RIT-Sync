@@ -5,7 +5,6 @@ import useAuthStore from '../../store/authStore'
 import useOfflineStore from '../../store/offlineStore'
 import { sessionsApi } from '../../api/sessions'
 import { attendanceApi } from '../../api/attendance'
-import { usersApi } from '../../api/users'
 import { getCachedSessions } from '../../offline/db'
 import VerificationStepper from '../../components/verification/VerificationStepper'
 import FaceStep from '../../components/verification/FaceStep'
@@ -20,6 +19,19 @@ import toast from 'react-hot-toast'
 
 const STEPS = { FACE: 1, GPS: 2, BLE: 3, DEVICE: 4, SUBMITTING: 5, RESULT: 6 }
 
+// Evidence collected on the device. The server makes every verification decision.
+const EMPTY_VERIFICATION = {
+  faceDescriptor: null,
+  livenessFrames: null,
+  gpsPosition:    null,
+  gpsDistance:    null,
+  beaconUuid:     null,
+  beaconToken:    null,
+  beaconRssi:     null,
+  deviceFingerprint: null,
+  deviceName:     null,
+}
+
 export default function MarkAttendancePage() {
   const navigate     = useNavigate()
   const user         = useAuthStore(s => s.user)
@@ -28,30 +40,15 @@ export default function MarkAttendancePage() {
   const [openSessions, setOpenSessions] = useState([])
   const [selectedSession, setSelectedSession] = useState(null)
   const [loadingSessions, setLoadingSessions] = useState(true)
-  const [storedDescriptor, setStoredDescriptor] = useState(null)
   const [faceRequired, setFaceRequired] = useState(false)
 
   const [currentStep, setCurrentStep] = useState(STEPS.FACE)
   const [stepStatuses, setStepStatuses] = useState({ 1: 'active', 2: 'idle', 3: 'idle', 4: 'idle' })
 
-  const [verificationData, setVerificationData] = useState({
-    faceDescriptor: null,
-    faceVerified:   false,
-    livenessVerified: false,
-    blinkCount:     0,
-    gpsPosition:    null,
-    gpsDistance:    null,
-    beaconUuid:     null,
-    beaconToken:    null,
-    beaconRssi:     null,
-    deviceFingerprint: null,
-    deviceName:     null,
-    zkpChallenge:   null,
-    zkpHmac:        null,
-  })
+  const [verificationData, setVerificationData] = useState(EMPTY_VERIFICATION)
 
   const [result,     setResult]     = useState(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!user?.faceEnrolled) {
@@ -76,13 +73,6 @@ export default function MarkAttendancePage() {
     load()
   }, [isOnline, user?.faceEnrolled])
 
-  useEffect(() => {
-    if (!selectedSession) return
-    usersApi.getMyFaceDescriptor?.()
-      .then(data => setStoredDescriptor(data?.descriptor))
-      .catch(() => setStoredDescriptor(null))
-  }, [selectedSession])
-
   const advanceTo = useCallback((nextStep, prevStepResult) => {
     setStepStatuses(prev => ({
       ...prev,
@@ -92,20 +82,18 @@ export default function MarkAttendancePage() {
     setCurrentStep(nextStep)
   }, [currentStep])
 
-  const onFaceResult = useCallback(({ verified, faceDescriptor, livenessVerified, blinkCount }) => {
+  const onFaceResult = useCallback(({ verified, faceDescriptor, livenessFrames }) => {
     setVerificationData(prev => ({
       ...prev,
-      faceVerified:   verified,
-      faceDescriptor: faceDescriptor,
-      livenessVerified: livenessVerified || false,
-      blinkCount:     blinkCount || 0,
+      faceDescriptor,
+      livenessFrames: livenessFrames || null,
     }))
     if (!verified) {
       toast.error('Face ID failed. Please try again.')
       advanceTo(STEPS.FACE, false)
       return
     }
-    toast.success('Face verified!')
+    toast.success('Face captured!')
     advanceTo(STEPS.GPS, true)
   }, [advanceTo])
 
@@ -149,12 +137,10 @@ export default function MarkAttendancePage() {
 
     setSubmitting(true)
     try {
-      const stored = JSON.parse(localStorage.getItem('_face_descriptor_cache') || 'null')
       const payload = {
         sessionId:         selectedSession.id,
-        faceDescriptor:    stored || verificationData.faceDescriptor || [],
-        livenessVerified:  verificationData.livenessVerified,
-        blinkCount:        verificationData.blinkCount,
+        faceDescriptor:    verificationData.faceDescriptor,
+        livenessFrames:    verificationData.livenessFrames,
         userLat:           verificationData.gpsPosition?.lat,
         userLng:           verificationData.gpsPosition?.lng,
         gpsAccuracy:       verificationData.gpsPosition?.accuracy,
@@ -166,12 +152,12 @@ export default function MarkAttendancePage() {
       }
       const res = await attendanceApi.markAttendance(payload, !isOnline)
       if (res.offline) {
+        // Nothing has been verified yet: the server checks everything when the request syncs.
         setResult({
-          allVerified: true,
-          message: 'Saved offline — will sync when you reconnect.',
-          faceVerified: true, livenessVerified: true,
-          gpsVerified: true, beaconVerified: true,
-          deviceVerified: true, status: 'QUEUED',
+          queued: true,
+          allVerified: false,
+          message: 'Saved offline. It will be verified and recorded when you reconnect, as long as the session is still open.',
+          status: 'QUEUED',
         })
       } else {
         setResult(res)
@@ -179,16 +165,7 @@ export default function MarkAttendancePage() {
     } catch (e) {
       const msg = e.response?.data?.message || 'Submission failed'
       toast.error(msg)
-      setResult({
-        allVerified: false,
-        faceVerified: verificationData.faceVerified,
-        livenessVerified: verificationData.livenessVerified,
-        gpsVerified: !!verificationData.gpsPosition,
-        beaconVerified: !!verificationData.beaconUuid,
-        deviceVerified: true,
-        message: msg,
-        status: 'ABSENT',
-      })
+      setResult({ allVerified: false, error: true, message: msg, status: 'ABSENT' })
     } finally {
       setSubmitting(false)
       setCurrentStep(STEPS.RESULT)
@@ -199,14 +176,7 @@ export default function MarkAttendancePage() {
     setCurrentStep(STEPS.FACE)
     setStepStatuses({ 1: 'active', 2: 'idle', 3: 'idle', 4: 'idle' })
     setResult(null)
-    setVerificationData({
-      faceDescriptor: null, faceVerified: false,
-      livenessVerified: false, blinkCount: 0,
-      gpsPosition: null, gpsDistance: null,
-      beaconUuid: null, beaconToken: null, beaconRssi: null,
-      deviceFingerprint: null, deviceName: null,
-      zkpChallenge: null, zkpHmac: null,
-    })
+    setVerificationData(EMPTY_VERIFICATION)
   }
 
   const handleEnrollNow = () => {
@@ -305,7 +275,6 @@ export default function MarkAttendancePage() {
         {currentStep === STEPS.FACE && (
           <FaceStep
             onResult={onFaceResult}
-            storedDescriptor={storedDescriptor}
             session={selectedSession}
           />
         )}

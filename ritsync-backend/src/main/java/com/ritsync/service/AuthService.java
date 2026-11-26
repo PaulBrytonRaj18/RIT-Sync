@@ -35,6 +35,7 @@ public class AuthService {
     private final JwtTokenProvider      tokenProvider;
     private final AuthenticationManager authManager;
     private final AuditService          auditService;
+    private final DeviceVerificationService deviceService;
 
     @Value("${jwt.access-token-expiry-ms}")
     private long accessExpiry;
@@ -44,18 +45,23 @@ public class AuthService {
         if (userRepository.existsByEmail(req.email())) {
             throw RitSyncException.conflict("Email already registered: " + req.email());
         }
-        if (req.role() == Role.ADMIN) {
-            throw RitSyncException.forbidden("Cannot self-register as ADMIN");
+        // Self-registration is for students only. Teacher and admin accounts are created by
+        // an administrator (POST /admin/users), otherwise anyone could grant themselves staff rights.
+        if (req.role() != null && req.role() != Role.STUDENT) {
+            throw RitSyncException.forbidden(
+                "Only students can self-register. Teacher accounts are created by an administrator.");
+        }
+        if (req.rollNumber() == null || req.rollNumber().isBlank()) {
+            throw RitSyncException.badRequest("Roll number is required.");
         }
 
         User user = User.builder()
             .name(req.name())
             .email(req.email())
             .passwordHash(passwordEncoder.encode(req.password()))
-            .role(req.role())
+            .role(Role.STUDENT)
             .department(req.department())
             .rollNumber(req.rollNumber())
-            .employeeId(req.employeeId())
             .phone(req.phone())
             .build();
 
@@ -92,7 +98,7 @@ public class AuthService {
         //     throw RitSyncException.unauthorized("Please verify your email before logging in.");
         // }
 
-        log.info("User {} logged in from IP {}", user.getEmail(), "device");
+        log.info("User {} logged in", user.getId());
 
         bindDevice(user, req.deviceFingerprint(), req.deviceName());
 
@@ -109,21 +115,7 @@ public class AuthService {
         if (fingerprint == null || fingerprint.isBlank()) {
             return;
         }
-        
-        var existing = deviceBindingRepo.findByUserIdAndDeviceFingerprint(user.getId(), fingerprint);
-        if (existing.isPresent()) {
-            existing.get().setLastSeenAt(LocalDateTime.now());
-            deviceBindingRepo.save(existing.get());
-        } else {
-            var binding = DeviceBinding.builder()
-                .user(user)
-                .deviceFingerprint(fingerprint)
-                .deviceName(deviceName)
-                .isTrusted(false)
-                .build();
-            deviceBindingRepo.save(binding);
-            log.info("New device registered for user {}: {} (requires verification)", user.getEmail(), deviceName);
-        }
+        deviceService.recordDevice(user, fingerprint, deviceName);
     }
 
     public boolean isDeviceTrusted(Long userId, String fingerprint) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, CalendarCheck, ChevronRight, Play, Square } from 'lucide-react'
+import { Plus, CalendarCheck, Play, Square } from 'lucide-react'
 import { sessionsApi } from '../../api/sessions'
 import { coursesApi } from '../../api/courses'
 import useAuthStore from '../../store/authStore'
@@ -24,7 +24,7 @@ export default function TeacherSessionsPage() {
   const [form,     setForm]     = useState({
     courseId: '', title: '', startTime: '', endTime: '',
     geofenceLat: '', geofenceLng: '', geofenceRadiusM: '100',
-    isMakeup: false
+    isMakeup: false, enableLiveness: false
   })
   const [creating, setCreating] = useState(false)
 
@@ -144,6 +144,15 @@ export default function TeacherSessionsPage() {
               onChange={e => setForm(p => ({ ...p, isMakeup: e.target.checked }))}
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
             Makeup session (scheduled after cancellation)
+          </label>
+          <label className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" checked={form.enableLiveness}
+              onChange={e => setForm(p => ({ ...p, enableLiveness: e.target.checked }))}
+              className="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+            <span>
+              Require liveness check
+              <span className="block text-xs text-gray-400">Students must blink on camera; helps block photo spoofing.</span>
+            </span>
           </label>
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" className="flex-1" onClick={() => setShowNew(false)}>Cancel</Button>

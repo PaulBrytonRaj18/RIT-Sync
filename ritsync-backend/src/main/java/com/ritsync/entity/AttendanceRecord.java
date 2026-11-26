@@ -38,6 +38,13 @@ public class AttendanceRecord {
 
     @Builder.Default private Integer blinkCount = 0;
 
+    /** Number of verification attempts the student made for this session (capped). */
+    @Column(nullable = false) @Builder.Default private Integer attemptCount = 0;
+
+    /** SHA-256 of the submitted live descriptor; identical re-submissions are rejected as replays. */
+    @Column(length = 64)
+    private String faceDescriptorHash;
+
     private Double gpsAccuracy;
 
     private String beaconUuid;

@@ -1,15 +1,14 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { Camera, CheckCircle, AlertCircle, RefreshCw, Info } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Camera, CheckCircle, RefreshCw, Info } from 'lucide-react'
 import { useFaceVerification } from '../../hooks/useFaceVerification'
 import { usersApi } from '../../api/users'
 import useAuthStore from '../../store/authStore'
-import { encryptDescriptor } from '../../utils/faceEncryption'
 import PageHeader from '../../components/shared/PageHeader'
 import Button from '../../components/ui/Button'
 import Spinner from '../../components/ui/Spinner'
 import toast from 'react-hot-toast'
 
-const STEPS = ['instructions', 'camera', 'capturing', 'saving', 'done']
+// Steps: instructions → camera → capturing → saving → done
 
 export default function FaceEnrollPage() {
   const user       = useAuthStore(s => s.user)
@@ -52,28 +51,23 @@ export default function FaceEnrollPage() {
       const avg = newCaptures.reduce((acc, curr) =>
         curr.map((val, i) => (acc[i] || 0) + val / newCaptures.length), Array(128).fill(0))
 
-      // Encrypt descriptor with ZKP before sending to server
-      const email = user?.email || 'default'
-      const encrypted = await encryptDescriptor(avg, email)
-
-      // Send encrypted payload to server. The server stores only the encrypted blob.
-      await usersApi.enrollFaceZKP({
-        descriptor: avg,
-        encryptedDescriptor: encrypted.encryptedDescriptor,
-        encryptionIv: encrypted.encryptionIv,
-        salt: encrypted.salt,
-      })
-
-      // Also store locally for offline face verification
-      sessionStorage.setItem('_face_descriptor_cache', JSON.stringify(avg))
+      // The server encrypts the template at rest (AES-256-GCM) and never returns it.
+      await usersApi.enrollFaceDescriptor(avg)
 
       stopCamera()
       updateUser({ ...user, faceEnrolled: true })
       setStep('done')
-      toast.success('Face ID enrolled successfully! (ZKP encrypted)')
+      toast.success('Face ID enrolled successfully!')
     } catch (err) {
-      toast.error(err.message || 'Capture failed — try again')
-      setStep('camera')
+      if (err.response?.status === 409) {
+        // Already enrolled on the server (e.g. from another device)
+        stopCamera()
+        updateUser({ ...user, faceEnrolled: true })
+        setCaptures([])
+        setStep('instructions')
+      }
+      toast.error(err.response?.data?.message || err.message || 'Capture failed — try again')
+      if (err.response?.status !== 409) setStep('camera')
     } finally {
       setSaving(false)
     }
@@ -96,7 +90,7 @@ export default function FaceEnrollPage() {
 
       {isEnrolled && step === 'instructions' && (
         <div className="mb-4 flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-xl text-sm text-green-700">
-          <CheckCircle size={15} /> Your face ID is already enrolled. You can re-enroll below.
+          <CheckCircle size={15} /> Your Face ID is enrolled. To re-enroll, ask an administrator to reset it.
         </div>
       )}
 
@@ -115,8 +109,8 @@ export default function FaceEnrollPage() {
               </div>
             ))}
           </div>
-          <Button variant="primary" className="w-full" onClick={handleStartCamera}>
-            <Camera size={16} /> Start camera
+          <Button variant="primary" className="w-full" onClick={handleStartCamera} disabled={isEnrolled}>
+            <Camera size={16} /> {isEnrolled ? 'Already enrolled' : 'Start camera'}
           </Button>
         </div>
       )}

@@ -5,6 +5,8 @@ import com.ritsync.entity.*;
 import com.ritsync.enums.AttendanceStatus;
 import com.ritsync.exception.RitSyncException;
 import com.ritsync.repository.*;
+import com.ritsync.security.AccessGuard;
+import com.ritsync.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class TeacherService {
     private final UserRepository             userRepo;
     private final LeaveRequestRepository     leaveRequestRepo;
     private final AuditService               auditService;
+    private final AccessGuard                guard;
 
     @Transactional(readOnly = true)
     public TeacherDashboardResponse getSubjectTeacherDashboard(Long teacherId) {
@@ -240,19 +243,34 @@ public class TeacherService {
         return false;
     }
 
+    private static final int MAX_LEAVE_DAYS = 60;
+
     @Transactional
-    public LeaveRequest createLeaveRequest(Long studentId, Long courseId, String leaveType,
-                                           String reason, LocalDate fromDate, LocalDate toDate) {
+    public LeaveRequestResponse createLeaveRequest(Long studentId, Long courseId, String leaveType,
+                                                   String reason, LocalDate fromDate, LocalDate toDate) {
         User student = userRepo.findById(studentId)
             .orElseThrow(() -> RitSyncException.notFound("Student not found"));
         Course course = courseRepo.findById(courseId)
             .orElseThrow(() -> RitSyncException.notFound("Course not found"));
+        if (!enrollmentRepo.existsByStudentIdAndCourseIdAndIsActiveTrue(studentId, courseId)) {
+            throw RitSyncException.forbidden("You are not enrolled in this course.");
+        }
+        LeaveRequest.LeaveType type = parseEnum(LeaveRequest.LeaveType.class, leaveType, "leave type");
+        if (reason == null || reason.isBlank() || reason.length() > 1000) {
+            throw RitSyncException.badRequest("Reason is required (max 1000 characters).");
+        }
+        if (toDate.isBefore(fromDate)) {
+            throw RitSyncException.badRequest("Leave end date must not be before its start date.");
+        }
+        if (fromDate.plusDays(MAX_LEAVE_DAYS).isBefore(toDate)) {
+            throw RitSyncException.badRequest("A single leave request cannot exceed " + MAX_LEAVE_DAYS + " days.");
+        }
 
         LeaveRequest lr = LeaveRequest.builder()
             .student(student)
             .course(course)
-            .leaveType(LeaveRequest.LeaveType.valueOf(leaveType))
-            .reason(reason)
+            .leaveType(type)
+            .reason(reason.trim())
             .fromDate(fromDate)
             .toDate(toDate)
             .status(LeaveRequest.LeaveStatus.PENDING)
@@ -260,28 +278,48 @@ public class TeacherService {
         lr = leaveRequestRepo.save(lr);
         auditService.log(studentId, student.getEmail(), "LEAVE_REQUESTED",
             "leave_requests", lr.getId(), null, null);
-        return lr;
+        return LeaveRequestResponse.from(lr);
     }
 
     @Transactional
-    public LeaveRequest reviewLeaveRequest(Long leaveId, Long reviewerId, String decision, String notes) {
+    public LeaveRequestResponse reviewLeaveRequest(Long leaveId, UserPrincipal reviewerPrincipal,
+                                                   String decision, String notes) {
         LeaveRequest lr = leaveRequestRepo.findById(leaveId)
             .orElseThrow(() -> RitSyncException.notFound("Leave request not found"));
-        User reviewer = userRepo.findById(reviewerId)
+        if (lr.getCourse() == null) {
+            throw RitSyncException.badRequest("Leave request is not linked to a course.");
+        }
+        guard.requireManage(lr.getCourse(), reviewerPrincipal);
+        if (lr.getStatus() != LeaveRequest.LeaveStatus.PENDING) {
+            throw RitSyncException.conflict("This leave request has already been " + lr.getStatus().name().toLowerCase() + ".");
+        }
+        LeaveRequest.LeaveStatus status = parseEnum(LeaveRequest.LeaveStatus.class, decision, "decision");
+        if (status == LeaveRequest.LeaveStatus.PENDING) {
+            throw RitSyncException.badRequest("Decision must be APPROVED or REJECTED.");
+        }
+        User reviewer = userRepo.findById(reviewerPrincipal.getId())
             .orElseThrow(() -> RitSyncException.notFound("Reviewer not found"));
 
-        lr.setStatus(LeaveRequest.LeaveStatus.valueOf(decision));
+        lr.setStatus(status);
         lr.setReviewedBy(reviewer);
         lr.setReviewNotes(notes);
         lr = leaveRequestRepo.save(lr);
 
-        if (decision.equals("APPROVED")) {
+        if (status == LeaveRequest.LeaveStatus.APPROVED) {
             autoAdjustAttendanceOnLeave(lr);
         }
 
-        auditService.log(reviewerId, reviewer.getEmail(), "LEAVE_" + decision,
+        auditService.log(reviewer.getId(), reviewer.getEmail(), "LEAVE_" + status.name(),
             "leave_requests", lr.getId(), null, null);
-        return lr;
+        return LeaveRequestResponse.from(lr);
+    }
+
+    private static <E extends Enum<E>> E parseEnum(Class<E> type, String value, String label) {
+        try {
+            return Enum.valueOf(type, value == null ? "" : value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw RitSyncException.badRequest("Invalid " + label + ": " + value);
+        }
     }
 
     private void autoAdjustAttendanceOnLeave(LeaveRequest lr) {
@@ -301,16 +339,20 @@ public class TeacherService {
         }
     }
 
-    public List<LeaveRequest> getPendingLeaves(Long teacherId) {
+    @Transactional(readOnly = true)
+    public List<LeaveRequestResponse> getPendingLeaves(Long teacherId) {
         List<Course> courses = courseRepo.findByInstructorIdAndIsActiveTrue(teacherId);
-        List<Long> courseIds = courses.stream().map(Course::getId).toList();
-        return courseIds.stream()
-            .flatMap(cid -> leaveRequestRepo.findByCourseIdAndStatusOrderByCreatedAtDesc(cid, LeaveRequest.LeaveStatus.PENDING).stream())
+        return courses.stream()
+            .flatMap(c -> leaveRequestRepo.findByCourseIdAndStatusOrderByCreatedAtDesc(c.getId(), LeaveRequest.LeaveStatus.PENDING).stream())
+            .map(LeaveRequestResponse::from)
             .toList();
     }
 
-    public List<LeaveRequest> getStudentLeaveHistory(Long studentId) {
-        return leaveRequestRepo.findByStudentIdOrderByCreatedAtDesc(studentId);
+    @Transactional(readOnly = true)
+    public List<LeaveRequestResponse> getStudentLeaveHistory(Long studentId) {
+        return leaveRequestRepo.findByStudentIdOrderByCreatedAtDesc(studentId).stream()
+            .map(LeaveRequestResponse::from)
+            .toList();
     }
 
     private Map<Long, Integer> getEnrollmentCounts(List<Long> courseIds) {

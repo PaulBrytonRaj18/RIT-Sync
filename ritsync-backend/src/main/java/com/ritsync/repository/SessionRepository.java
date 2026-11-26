@@ -12,6 +12,7 @@ import java.util.List;
 public interface SessionRepository extends JpaRepository<Session, Long> {
     List<Session> findByCourseIdOrderByStartTimeDesc(Long courseId);
     List<Session> findByIsOpenTrue();
+    List<Session> findByIsOpenTrueAndCourseIdIn(List<Long> courseIds);
 
     @Query("SELECT s FROM Session s WHERE s.course.id = :courseId AND s.startTime BETWEEN :from AND :to")
     List<Session> findByCourseAndDateRange(Long courseId, LocalDateTime from, LocalDateTime to);
