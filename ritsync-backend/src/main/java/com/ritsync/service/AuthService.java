@@ -130,7 +130,27 @@ public class AuthService {
         return deviceBindingRepo.existsByUserIdAndDeviceFingerprintAndIsTrustedTrue(userId, fingerprint);
     }
 
-    public String encodePassword(String rawPassword) {
-        return passwordEncoder.encode(rawPassword);
+    /**
+     * Exchanges a valid refresh token for a new access + refresh token pair.
+     * The account is re-checked so disabled/deleted users cannot keep refreshing.
+     */
+    @Transactional(readOnly = true)
+    public AuthResponse refresh(String refreshToken) {
+        String email = tokenProvider.validateRefreshToken(refreshToken)
+            .orElseThrow(() -> RitSyncException.unauthorized("Invalid or expired refresh token"));
+
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> RitSyncException.unauthorized("Invalid or expired refresh token"));
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw RitSyncException.unauthorized("Account is disabled. Please contact administrator.");
+        }
+
+        var principal = new UserPrincipal(user);
+        boolean faceEnrolled = userRepository.existsFaceDescriptorByUserId(user.getId());
+        return AuthResponse.of(
+            tokenProvider.generateAccessToken(principal),
+            tokenProvider.generateRefreshToken(principal),
+            accessExpiry / 1000,
+            UserResponse.from(user, faceEnrolled));
     }
 }

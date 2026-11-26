@@ -41,20 +41,19 @@ public class FaceDescriptorService {
 
     @PostConstruct
     public void init() {
+        // Biometric data must never be stored in plaintext, and a short key must never be zero-padded.
         if (encryptionKey == null || encryptionKey.isBlank()) {
-            log.warn("ENCRYPTION_KEY not configured. Face descriptors stored unencrypted.");
-            keySpec = null;
-        } else {
-            byte[] keyBytes = encryptionKey.getBytes(StandardCharsets.UTF_8);
-            if (keyBytes.length < 32) {
-                byte[] paddedKey = new byte[32];
-                System.arraycopy(keyBytes, 0, paddedKey, 0, Math.min(keyBytes.length, 32));
-                keySpec = new SecretKeySpec(paddedKey, "AES");
-            } else {
-                keySpec = new SecretKeySpec(keyBytes, 0, 32, "AES");
-            }
-            log.info("Face descriptor encryption enabled.");
+            throw new IllegalStateException(
+                "ENCRYPTION_KEY is not set. Generate one with: openssl rand -base64 32");
         }
+        byte[] keyBytes = encryptionKey.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException(
+                "ENCRYPTION_KEY must be at least 32 bytes (AES-256). Current length: " + keyBytes.length
+                + ". Generate one with: openssl rand -base64 32");
+        }
+        keySpec = new SecretKeySpec(keyBytes, 0, 32, "AES");
+        log.info("Face descriptor encryption enabled.");
     }
 
     @Transactional
@@ -107,9 +106,6 @@ public class FaceDescriptorService {
     }
 
     private String encrypt(String plaintext) {
-        if (keySpec == null) {
-            return plaintext;
-        }
         try {
             byte[] iv = new byte[GCM_IV_LENGTH];
             secureRandom.nextBytes(iv);
@@ -131,9 +127,6 @@ public class FaceDescriptorService {
     }
 
     private String decrypt(String encrypted) {
-        if (keySpec == null) {
-            return encrypted;
-        }
         try {
             byte[] combined = Base64.getDecoder().decode(encrypted);
             byte[] iv = new byte[GCM_IV_LENGTH];

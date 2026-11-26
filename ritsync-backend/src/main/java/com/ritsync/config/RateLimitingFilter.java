@@ -2,75 +2,95 @@ package com.ritsync.config;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import jakarta.servlet.*;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Per-IP rate limiting with two tiers:
+ * <ul>
+ *   <li><b>auth</b>  – login / register / refresh: strict, to slow credential stuffing.</li>
+ *   <li><b>api</b>   – everything else: generous, only to stop runaway clients.</li>
+ * </ul>
+ * The client IP comes from {@link HttpServletRequest#getRemoteAddr()}. With
+ * {@code server.forward-headers-strategy=native}, Tomcat rewrites it from X-Forwarded-For
+ * only when the request came through a trusted internal proxy, so clients cannot spoof it.
+ * <p>
+ * Buckets live in memory (bounded LRU). If you run more than one backend instance,
+ * move this to a shared store (e.g. bucket4j-redis) or limits become N × capacity.
+ */
 @Slf4j
 @Component
-@Order(1)
-public class RateLimitingFilter implements Filter {
+@Order(Ordered.HIGHEST_PRECEDENCE + 10)
+public class RateLimitingFilter extends OncePerRequestFilter {
 
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    static final Set<String> AUTH_PATHS = Set.of("/auth/login", "/auth/register", "/auth/refresh");
+    private static final Set<String> EXEMPT_PATHS = Set.of("/actuator/health");
+    private static final int MAX_TRACKED_CLIENTS = 10_000;
 
-    private static final Set<String> EXCLUDED_PATHS = Set.of(
-            "/auth/login",
-            "/auth/register",
-            "/actuator/health"
-    );
+    private final long authCapacity;
+    private final long apiCapacity;
+
+    private final Map<String, Bucket> buckets = Collections.synchronizedMap(
+        new LinkedHashMap<>(256, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, Bucket> eldest) {
+                return size() > MAX_TRACKED_CLIENTS;
+            }
+        });
+
+    public RateLimitingFilter(@Value("${app.rate-limit.auth-capacity:10}") long authCapacity,
+                              @Value("${app.rate-limit.api-capacity:300}") long apiCapacity) {
+        this.authCapacity = authCapacity;
+        this.apiCapacity = apiCapacity;
+    }
 
     @Override
-    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-            throws IOException, ServletException {
-
-        HttpServletRequest httpRequest = (HttpServletRequest) request;
-        HttpServletResponse httpResponse = (HttpServletResponse) response;
-
-        String path = httpRequest.getRequestURI();
-
-        if (EXCLUDED_PATHS.contains(path)) {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
+        // getServletPath() excludes the /api context path, so "/auth/login" matches as intended.
+        String path = request.getServletPath();
+        if (EXEMPT_PATHS.contains(path) || "OPTIONS".equalsIgnoreCase(request.getMethod())) {
             chain.doFilter(request, response);
             return;
         }
 
-        String clientKey = getClientKey(httpRequest);
-        Bucket bucket = buckets.computeIfAbsent(clientKey, this::createBucket);
+        boolean isAuth = AUTH_PATHS.contains(path);
+        String key = (isAuth ? "auth:" : "api:") + request.getRemoteAddr();
+        Bucket bucket = buckets.computeIfAbsent(key, k -> newBucket(isAuth ? authCapacity : apiCapacity));
 
         if (bucket.tryConsume(1)) {
-            httpResponse.setHeader("X-Rate-Limit-Remaining", String.valueOf(bucket.getAvailableTokens()));
+            response.setHeader("X-Rate-Limit-Remaining", String.valueOf(bucket.getAvailableTokens()));
             chain.doFilter(request, response);
         } else {
-            log.warn("Rate limit exceeded for client: {}", clientKey);
-            httpResponse.setStatus(429);
-            httpResponse.setContentType("application/json");
-            httpResponse.getWriter().write("{\"error\":\"Too many requests. Please try again later.\"}");
+            log.warn("Rate limit exceeded: tier={} ip={}", isAuth ? "auth" : "api", request.getRemoteAddr());
+            response.setStatus(429);
+            response.setHeader("Retry-After", "60");
+            response.setContentType("application/json");
+            response.getWriter().write("{\"success\":false,\"message\":\"Too many requests. Please try again later.\"}");
         }
     }
 
-    private String getClientKey(HttpServletRequest request) {
-        String ip = request.getRemoteAddr();
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isEmpty()) {
-            ip = xff.split(",")[0].trim();
-        }
-        return ip;
-    }
-
-    private Bucket createBucket(String key) {
+    private static Bucket newBucket(long capacityPerMinute) {
         return Bucket.builder()
-                .addLimit(Bandwidth.builder()
-                        .capacity(5)
-                        .refillGreedy(5, Duration.ofMinutes(1))
-                        .build())
-                .build();
+            .addLimit(Bandwidth.builder()
+                .capacity(capacityPerMinute)
+                .refillGreedy(capacityPerMinute, Duration.ofMinutes(1))
+                .build())
+            .build();
     }
 }

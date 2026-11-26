@@ -17,6 +17,8 @@
         <java.version>17</java.version>
         <jjwt.version>0.12.5</jjwt.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
+        <!-- Newer Lombok so the build also works on JDK 21+ (Boot 3.2's default breaks on recent javac) -->
+        <lombok.version>1.18.42</lombok.version>
     </properties>
     <dependencies>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
@@ -35,6 +37,7 @@
         <dependency><groupId>com.fasterxml.jackson.datatype</groupId><artifactId>jackson-datatype-jsr310</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
         <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-test</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId><scope>test</scope></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-websocket</artifactId></dependency>
 
     </dependencies>
