@@ -1,11 +1,10 @@
 package com.ritsync.controller;
 
 import com.ritsync.dto.response.ApiResponse;
-import com.ritsync.enums.AttendanceStatus;
 import com.ritsync.enums.Role;
-import com.ritsync.repository.AttendanceRecordRepository;
 import com.ritsync.repository.CourseRepository;
 import com.ritsync.repository.UserRepository;
+import com.ritsync.service.AttendanceStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +20,7 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final CourseRepository courseRepository;
-    private final AttendanceRecordRepository attendanceRepo;
+    private final AttendanceStatsService statsService;
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasRole('ADMIN')")
@@ -31,9 +30,7 @@ public class AdminController {
         long adminCount = userRepository.countByRoleAndIsActiveTrue(Role.ADMIN);
         long courseCount = courseRepository.count();
 
-        long totalPresent = attendanceRepo.countByStatus(AttendanceStatus.PRESENT);
-        long totalRecords = attendanceRepo.count();
-        double avgAttendance = totalRecords == 0 ? 0.0 : totalPresent * 100.0 / totalRecords;
+        double avgAttendance = statsService.overall().percentage();
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("totalStudents", studentCount);
@@ -53,9 +50,11 @@ public class AdminController {
             LocalDateTime start = date.atStartOfDay();
             LocalDateTime end = date.plusDays(1).atStartOfDay();
 
-            long total = attendanceRepo.countByMarkedAtBetween(start, end);
-            long present = attendanceRepo.countByMarkedAtBetweenAndStatus(start, end, AttendanceStatus.PRESENT);
-            double pct = total == 0 ? 0.0 : present * 100.0 / total;
+            // Sessions held that day (absences have no markedAt, so group by session start)
+            var c = statsService.forSessionsStartingBetween(start, end);
+            long total = c.counted();
+            long present = c.present() + c.late();
+            double pct = c.percentage();
 
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("day", date.getDayOfWeek().name().substring(0, 3));
@@ -71,12 +70,11 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<List<Map<String, Object>>> getDepartmentTrends() {
         List<String> departments = userRepository.findDistinctDepartments();
+        Map<String, AttendanceStatsService.Counts> byDept = statsService.byStudentDepartment();
         List<Map<String, Object>> result = new ArrayList<>();
 
         for (String dept : departments) {
-            long total = attendanceRepo.countByStudentDepartment(dept);
-            long present = attendanceRepo.countByStudentDepartmentAndStatus(dept, AttendanceStatus.PRESENT);
-            double pct = total == 0 ? 0.0 : present * 100.0 / total;
+            double pct = byDept.getOrDefault(dept, AttendanceStatsService.Counts.EMPTY).percentage();
 
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("department", dept);

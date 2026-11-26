@@ -8,6 +8,7 @@ import com.ritsync.repository.EnrollmentRepository;
 import com.ritsync.repository.SessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Resource-level authorization (who may touch WHICH course/session), complementing the
@@ -58,6 +59,14 @@ public class AccessGuard {
 
     public boolean canView(Course course, UserPrincipal p) {
         return canManage(course, p) || (isStudent(p) && isEnrolled(p.getId(), course.getId()));
+    }
+
+    /** Transactional so it can be used outside a request (e.g. from the WebSocket channel). */
+    @Transactional(readOnly = true)
+    public boolean canManageSession(Long sessionId, UserPrincipal p) {
+        return sessionRepository.findById(sessionId)
+            .map(s -> canManage(s.getCourse(), p))
+            .orElse(false);
     }
 
     // ── Enforcers ───────────────────────────────────────────────────────

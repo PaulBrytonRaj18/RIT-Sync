@@ -8,6 +8,7 @@ import com.ritsync.repository.*;
 import com.ritsync.security.AccessGuard;
 import com.ritsync.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,10 @@ public class TeacherService {
     private final LeaveRequestRepository     leaveRequestRepo;
     private final AuditService               auditService;
     private final AccessGuard                guard;
+    private final AttendanceStatsService     statsService;
+
+    @Value("${app.attendance.threshold-warning-percent:75}")
+    private double warningThreshold;
 
     @Transactional(readOnly = true)
     public TeacherDashboardResponse getSubjectTeacherDashboard(Long teacherId) {
@@ -102,24 +107,24 @@ public class TeacherService {
         }
 
         List<Enrollment> enrollments = enrollmentRepo.findByCourseIdAndIsActiveTrue(courseId);
-        long totalSessions = sessionRepo.findByCourseIdOrderByStartTimeDesc(courseId).size();
+        LocalDateTime now = LocalDateTime.now();
+        long sessionsHeld = sessionRepo.findByCourseIdOrderByStartTimeDesc(courseId).stream()
+            .filter(s -> !s.getEndTime().isAfter(now))
+            .count();
+        Map<Long, AttendanceStatsService.Counts> counts =
+            statsService.forCourses(List.of(courseId)).getOrDefault(courseId, Map.of());
 
         List<SubjectAttendanceSummaryResponse.StudentSummary> summaries = enrollments.stream().map(e -> {
             User s = e.getStudent();
-            long present = attendanceRepo.countByStudentAndCourseAndStatus(s.getId(), courseId, AttendanceStatus.PRESENT);
-            long absent  = attendanceRepo.countByStudentAndCourseAndStatus(s.getId(), courseId, AttendanceStatus.ABSENT);
-            long late    = attendanceRepo.countByStudentAndCourseAndStatus(s.getId(), courseId, AttendanceStatus.LATE);
-            long excused = attendanceRepo.countByStudentAndCourseAndStatus(s.getId(), courseId, AttendanceStatus.EXCUSED);
-            double pct = totalSessions == 0 ? 0.0 : (present + late) * 100.0 / totalSessions;
+            var c = counts.getOrDefault(s.getId(), AttendanceStatsService.Counts.EMPTY);
             return new SubjectAttendanceSummaryResponse.StudentSummary(
                 s.getId(), s.getName(), s.getRollNumber(),
-                present, absent, late, excused, pct, pct < 75.0
-            );
-        }).sorted(Comparator.comparingDouble(
-            (SubjectAttendanceSummaryResponse.StudentSummary ss) -> ss.percentage()
-        )).toList();
+                c.present(), c.absent(), c.late(), c.excused(), c.percentage(),
+                c.hasData() && c.percentage() < warningThreshold);
+        }).sorted(Comparator.comparingDouble(SubjectAttendanceSummaryResponse.StudentSummary::percentage))
+          .toList();
 
-        return new SubjectAttendanceSummaryResponse(courseId, course.getName(), course.getCode(), totalSessions, summaries);
+        return new SubjectAttendanceSummaryResponse(courseId, course.getName(), course.getCode(), sessionsHeld, summaries);
     }
 
     @Transactional(readOnly = true)
@@ -141,106 +146,80 @@ public class TeacherService {
     public ClassDashboardResponse getClassTeacherDashboard(Long teacherId) {
         List<Course> courses = courseRepo.findByInstructorIdAndIsActiveTrue(teacherId);
         List<Long> courseIds = courses.stream().map(Course::getId).toList();
-
         if (courseIds.isEmpty()) {
             return new ClassDashboardResponse(0, 0, 0, 0, 0, List.of(), List.of());
         }
+        Map<Long, Course> courseById = courses.stream().collect(Collectors.toMap(Course::getId, c -> c));
 
-        List<Enrollment> allEnrollments = enrollmentRepo.findByCourseIdInAndIsActiveTrue(courseIds);
-        Set<Long> allStudentIds = allEnrollments.stream()
-            .map(e -> e.getStudent().getId())
-            .collect(Collectors.toSet());
-
-        Map<Long, List<Long>> studentCourses = new HashMap<>();
-        for (Enrollment e : allEnrollments) {
-            studentCourses.computeIfAbsent(e.getStudent().getId(), k -> new ArrayList<>()).add(e.getCourse().getId());
+        List<Enrollment> enrollments = enrollmentRepo.findByCourseIdInAndIsActiveTrue(courseIds);
+        Map<Long, User> students = new LinkedHashMap<>();
+        Map<Long, List<Long>> enrolledByCourse = new HashMap<>();
+        for (Enrollment e : enrollments) {
+            students.putIfAbsent(e.getStudent().getId(), e.getStudent());
+            enrolledByCourse.computeIfAbsent(e.getCourse().getId(), k -> new ArrayList<>()).add(e.getStudent().getId());
         }
 
-        LocalDate today = LocalDate.now();
-        long todayAbsentees = 0;
+        // courseId -> studentId -> counts (one query)
+        Map<Long, Map<Long, AttendanceStatsService.Counts>> stats = statsService.forCourses(courseIds);
+
+        // Per-student overall % = mean of their course percentages (courses with data only)
+        Map<Long, Double> overallByStudent = new HashMap<>();
         List<ClassDashboardResponse.DefaulterSummary> defaulters = new ArrayList<>();
-        List<ClassDashboardResponse.CourseAttendanceSummary> courseSummaries = new ArrayList<>();
-
-        Map<Long, Double> studentOverallPct = new HashMap<>();
-        Map<Long, Map<Long, Double>> studentCoursePct = new HashMap<>();
-
-        for (Long sid : allStudentIds) {
-            double totalPctSum = 0;
-            int courseCount = 0;
-            Map<Long, Double> coursePcts = new HashMap<>();
-
-            List<Long> sCourses = studentCourses.getOrDefault(sid, List.of());
-            for (Long cid : sCourses) {
-                long total = attendanceRepo.countTotalSessionsByStudentAndCourse(sid, cid);
-                if (total == 0) continue;
-                long present = attendanceRepo.countByStudentAndCourseAndStatus(sid, cid, AttendanceStatus.PRESENT);
-                long late = attendanceRepo.countByStudentAndCourseAndStatus(sid, cid, AttendanceStatus.LATE);
-                double pct = (present + late) * 100.0 / total;
-                coursePcts.put(cid, pct);
-                totalPctSum += pct;
-                courseCount++;
-            }
-            double overall = courseCount == 0 ? 0 : totalPctSum / courseCount;
-            studentOverallPct.put(sid, overall);
-            studentCoursePct.put(sid, coursePcts);
-
-            if (overall < 75.0 && overall > 0) {
-                List<ClassDashboardResponse.CourseDeficit> deficits = coursePcts.entrySet().stream()
-                    .map(e -> {
-                        Course matched = courses.stream().filter(co -> co.getId().equals(e.getKey())).findFirst().orElse(null);
-                        return new ClassDashboardResponse.CourseDeficit(e.getKey(), matched != null ? matched.getName() : "Unknown", e.getValue());
-                    })
-                    .toList();
-                User student = userRepo.findById(sid).orElse(null);
-                if (student != null) {
-                    defaulters.add(new ClassDashboardResponse.DefaulterSummary(
-                        sid, student.getName(), student.getRollNumber(), overall, deficits
-                    ));
+        for (User student : students.values()) {
+            List<ClassDashboardResponse.CourseDeficit> perCourse = new ArrayList<>();
+            for (Long cid : courseIds) {
+                var c = stats.getOrDefault(cid, Map.of()).get(student.getId());
+                if (c != null && c.hasData()) {
+                    perCourse.add(new ClassDashboardResponse.CourseDeficit(cid, courseById.get(cid).getName(), c.percentage()));
                 }
             }
-
-            boolean isAbsentToday = hasAbsentToday(sid, sCourses);
-            if (isAbsentToday) todayAbsentees++;
+            if (perCourse.isEmpty()) continue; // no sessions held yet: neither good nor bad
+            double overall = perCourse.stream().mapToDouble(ClassDashboardResponse.CourseDeficit::percentage).average().orElse(0);
+            overallByStudent.put(student.getId(), overall);
+            if (overall < warningThreshold) {
+                defaulters.add(new ClassDashboardResponse.DefaulterSummary(
+                    student.getId(), student.getName(), student.getRollNumber(), overall,
+                    perCourse.stream().filter(d -> d.percentage() < warningThreshold).toList()));
+            }
         }
-
-        for (Course course : courses) {
-            List<Enrollment> enr = enrollmentRepo.findByCourseIdAndIsActiveTrue(course.getId());
-            if (enr.isEmpty()) continue;
-            double avgPct = enr.stream()
-                .mapToDouble(e -> studentOverallPct.getOrDefault(e.getStudent().getId(), 0.0))
-                .average().orElse(0);
-            courseSummaries.add(new ClassDashboardResponse.CourseAttendanceSummary(
-                course.getId(), course.getName(), course.getCode(),
-                enr.size(), avgPct
-            ));
-        }
-
         defaulters.sort(Comparator.comparingDouble(ClassDashboardResponse.DefaulterSummary::overallPct));
 
-        double overallPct = allStudentIds.isEmpty() ? 0 :
-            allStudentIds.stream().mapToDouble(id -> studentOverallPct.getOrDefault(id, 0.0)).average().orElse(0);
+        // Course averages use each student's percentage IN THAT COURSE
+        List<ClassDashboardResponse.CourseAttendanceSummary> courseSummaries = new ArrayList<>();
+        for (Course course : courses) {
+            List<Long> enrolled = enrolledByCourse.getOrDefault(course.getId(), List.of());
+            if (enrolled.isEmpty()) continue;
+            double avg = stats.getOrDefault(course.getId(), Map.of()).values().stream()
+                .filter(AttendanceStatsService.Counts::hasData)
+                .mapToDouble(AttendanceStatsService.Counts::percentage)
+                .average().orElse(0);
+            courseSummaries.add(new ClassDashboardResponse.CourseAttendanceSummary(
+                course.getId(), course.getName(), course.getCode(), enrolled.size(), avg));
+        }
+
+        double overallPct = overallByStudent.values().stream().mapToDouble(Double::doubleValue).average().orElse(0);
 
         return new ClassDashboardResponse(
-            allStudentIds.size(), overallPct, todayAbsentees, defaulters.size(),
-            courses.size(), courseSummaries, defaulters
-        );
+            students.size(), overallPct, countAbsentToday(courseIds), defaulters.size(),
+            courses.size(), courseSummaries, defaulters);
     }
 
-    private boolean hasAbsentToday(Long studentId, List<Long> courseIds) {
+    /** Distinct students marked ABSENT in any of today's sessions that have already started. */
+    private long countAbsentToday(List<Long> courseIds) {
         LocalDateTime start = LocalDate.now().atStartOfDay();
-        LocalDateTime end = start.plusDays(1);
+        LocalDateTime now = LocalDateTime.now();
+        List<Long> todaysSessionIds = new ArrayList<>();
         for (Long cid : courseIds) {
-            List<Session> todaySessions = sessionRepo.findByCourseAndDateRange(cid, start, end);
-            for (Session s : todaySessions) {
-                if (Boolean.TRUE.equals(s.getIsOpen())) {
-                    var record = attendanceRepo.findBySessionIdAndStudentId(s.getId(), studentId);
-                    if (record.isEmpty() || record.get().getStatus() == AttendanceStatus.ABSENT) {
-                        return true;
-                    }
-                }
-            }
+            sessionRepo.findByCourseAndDateRange(cid, start, start.plusDays(1)).stream()
+                .filter(s -> !s.getStartTime().isAfter(now))
+                .forEach(s -> todaysSessionIds.add(s.getId()));
         }
-        return false;
+        if (todaysSessionIds.isEmpty()) return 0;
+        return attendanceRepo.findStatusesForSessions(todaysSessionIds).stream()
+            .filter(row -> row[2] == AttendanceStatus.ABSENT)
+            .map(row -> row[1])
+            .distinct()
+            .count();
     }
 
     private static final int MAX_LEAVE_DAYS = 60;

@@ -16,6 +16,7 @@ import com.ritsync.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,11 +46,16 @@ public class AttendanceService {
     private final LivenessVerificationService livenessService;
     private final BeaconVerificationService   beaconService;
     private final AuditService                auditService;
-    private final NotificationService         notificationService;
+    private final ApplicationEventPublisher   events;
     private final AccessGuard                 guard;
+    private final AttendanceStatsService      statsService;
 
     @Value("${app.attendance.max-attempts:5}")
     private int maxAttempts;
+
+    /** A successful check-in more than this many minutes after the start is recorded as LATE. */
+    @Value("${app.attendance.late-after-minutes:10}")
+    private int lateAfterMinutes;
 
     /** Reported GPS accuracy worse than this (metres) cannot pass the geofence check. */
     @Value("${app.geofence.max-accuracy-m:150}")
@@ -125,7 +131,8 @@ public class AttendanceService {
 
         boolean allVerified = faceOk && livenessOk && gpsOk && beaconOk && deviceOk;
         if (allVerified) {
-            record.setStatus(AttendanceStatus.PRESENT);
+            boolean late = now.isAfter(session.getStartTime().plusMinutes(lateAfterMinutes));
+            record.setStatus(late ? AttendanceStatus.LATE : AttendanceStatus.PRESENT);
             record.setMarkedAt(now);
         }
         // A failed attempt leaves the status unchanged (ABSENT) but keeps the evidence for review.
@@ -163,10 +170,12 @@ public class AttendanceService {
             "attendance_records", record.getId(), audit, null);
 
         if (allVerified) {
-            notificationService.checkAndNotifyThreshold(studentId, courseId);
+            events.publishEvent(new HeatmapPublisher.CheckInEvent(session.getId()));
         }
 
-        String message = buildMessage(faceOk, face.suspectedReplay() || reusedDescriptor, livenessOk, gpsOk,
+        String message = allVerified && record.getStatus() == AttendanceStatus.LATE
+            ? "Attendance marked as LATE (more than " + lateAfterMinutes + " minutes after the session started)."
+            : buildMessage(faceOk, face.suspectedReplay() || reusedDescriptor, livenessOk, gpsOk,
             accuracyOk, beaconOk, deviceOk, allVerified, session);
 
         return new MarkAttendanceResponse(
@@ -200,16 +209,10 @@ public class AttendanceService {
             guard.requireManage(courseId, actor);
         }
 
-        long total   = attendanceRepo.countTotalSessionsByStudentAndCourse(studentId, courseId);
-        long present = attendanceRepo.countByStudentAndCourseAndStatus(studentId, courseId, AttendanceStatus.PRESENT);
-        long absent  = attendanceRepo.countByStudentAndCourseAndStatus(studentId, courseId, AttendanceStatus.ABSENT);
-        long late    = attendanceRepo.countByStudentAndCourseAndStatus(studentId, courseId, AttendanceStatus.LATE);
-        long excused = attendanceRepo.countByStudentAndCourseAndStatus(studentId, courseId, AttendanceStatus.EXCUSED);
-        double pct   = total == 0 ? 0.0 : (present + late) * 100.0 / total;
-
+        AttendanceStatsService.Counts c = statsService.forStudent(studentId, courseId);
         return new AttendanceStatsResponse(
-            studentId, courseId, total, present, absent, late, excused, pct,
-            Map.of("PRESENT", present, "ABSENT", absent, "LATE", late, "EXCUSED", excused)
+            studentId, courseId, c.total(), c.present(), c.absent(), c.late(), c.excused(), c.percentage(),
+            Map.of("PRESENT", c.present(), "ABSENT", c.absent(), "LATE", c.late(), "EXCUSED", c.excused())
         );
     }
 
@@ -234,6 +237,9 @@ public class AttendanceService {
                    "newStatus", req.status().name(), "reason", req.reason()),
             null);
 
+        if (req.status() == AttendanceStatus.ABSENT) {
+            events.publishEvent(new AlertService.AttendanceChangedEvent(List.of(studentId), record.getSession().getCourse().getId()));
+        }
         return AttendanceRecordResponse.from(record);
     }
 

@@ -39,6 +39,12 @@ public class CourseController {
         return ApiResponse.ok("Student enrolled", null);
     }
 
+    @GetMapping("/{courseId}")
+    public ApiResponse<CourseResponse> getCourse(@PathVariable Long courseId,
+                                                 @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.ok(courseService.getById(courseId, principal));
+    }
+
     @GetMapping("/my")
     public ApiResponse<List<CourseResponse>> getMyCourses(@AuthenticationPrincipal UserPrincipal principal) {
         boolean isStudent = principal.getRole().equals("STUDENT");

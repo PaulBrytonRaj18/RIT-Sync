@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import useAuthStore from './store/authStore'
 import { registerSyncTrigger } from './store/offlineStore'
 import AppShell from './components/layout/AppShell'
@@ -37,6 +38,7 @@ import AdminDashboard    from './pages/admin/AdminDashboard'
 import AdminUsersPage    from './pages/admin/AdminUsersPage'
 import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage'
 import AdminAuditPage    from './pages/admin/AdminAuditPage'
+import AdminAttendancePage from './pages/admin/AdminAttendancePage'
 
 function RequireAuth({ children, roles }) {
   const { isAuthenticated, user } = useAuthStore()
@@ -59,7 +61,11 @@ async function handleSync() {
   try {
     const result = await processSyncQueue()
     if (result.succeeded > 0) {
-      console.log(`[RIT-Sync] Synced ${result.succeeded} items successfully`)
+      toast.success(`Synced ${result.succeeded} offline submission${result.succeeded === 1 ? '' : 's'}. Check My Attendance for the result.`)
+    }
+    if (result.failed > 0) {
+      // e.g. the session closed before the device came back online
+      toast.error(`${result.failed} offline submission${result.failed === 1 ? ' was' : 's were'} rejected by the server. Please contact your teacher.`)
     }
   } catch (err) {
     console.error('[RIT-Sync] Sync failed:', err)
@@ -125,7 +131,7 @@ export default function App() {
         <Route path="/admin/users"      element={<AdminUsersPage />} />
         <Route path="/admin/analytics"  element={<AdminAnalyticsPage />} />
         <Route path="/admin/courses"    element={<StudentCoursesPage />} />
-        <Route path="/admin/attendance" element={<TeacherAttendancePage sessionId="0" />} />
+        <Route path="/admin/attendance" element={<AdminAttendancePage />} />
         <Route path="/admin/audit"     element={<AdminAuditPage />} />
       </Route>
 

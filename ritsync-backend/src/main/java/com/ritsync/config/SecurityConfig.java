@@ -76,6 +76,8 @@ public class SecurityConfig {
                     "/auth/register",
                     "/auth/refresh",
                     "/devices/confirm",
+                    // WebSocket handshake; STOMP CONNECT is authenticated in WebSocketConfig
+                    "/ws-heatmap/**",
                     "/actuator/health",
                     "/swagger-ui/**",
                     "/v3/api-docs/**"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { attendanceApi } from '../../api/attendance'
 import { sessionsApi } from '../../api/sessions'
@@ -8,7 +8,7 @@ import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
 import Input from '../../components/ui/Input'
 import Spinner from '../../components/ui/Spinner'
-import { statusBadgeClass, fmt } from '../../utils/format'
+import { fmt } from '../../utils/format'
 import toast from 'react-hot-toast'
 
 export default function TeacherAttendancePage() {
@@ -20,17 +20,22 @@ export default function TeacherAttendancePage() {
   const [reason,    setReason]    = useState('')
   const [saving,    setSaving]    = useState(false)
 
-  const load = async () => {
-    const [rec, sessions] = await Promise.all([
-      attendanceApi.getSessionAttendance(sessionId),
-      sessionsApi.getOpenSessions(),
-    ])
-    setRecords(rec)
-    setSession(sessions.find(s => s.id === Number(sessionId)) || null)
-    setLoading(false)
-  }
+  const load = useCallback(async () => {
+    try {
+      const [rec, s] = await Promise.all([
+        attendanceApi.getSessionAttendance(sessionId),
+        sessionsApi.getById(sessionId),
+      ])
+      setRecords(rec)
+      setSession(s)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not load attendance')
+    } finally {
+      setLoading(false)
+    }
+  }, [sessionId])
 
-  useEffect(() => { load() }, [sessionId])
+  useEffect(() => { load() }, [load])
 
   const handleOverride = async (status) => {
     if (!reason.trim()) { toast.error('Please provide a reason'); return }
@@ -53,7 +58,7 @@ export default function TeacherAttendancePage() {
   return (
     <div className="animate-fade-in">
       <PageHeader title="Session attendance"
-        subtitle={session ? `${session.course?.name} · ${fmt.datetime(session.startTime)}` : ''}
+        subtitle={session ? `${session.courseName} · ${fmt.datetime(session.startTime)}` : ''}
         action={
           session && session.isOpen ? (
             <Link to={`/teacher/mark/${sessionId}`}>
